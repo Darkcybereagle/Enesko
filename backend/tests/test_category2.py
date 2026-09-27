@@ -15,3 +15,10 @@ def test_admin_overview_and_audit(client):
     assert audit.status_code==200 and any(x["path"]=="/api/v1/activations" for x in audit.json())
 def test_wrong_password_rejected(client):
     assert login(client,"wrong").status_code==401
+
+def test_tenant_rbac_path(client):
+    r=client.post("/api/v1/auth/login",data={"username":"tenant@enesko.local","password":"TenantDemo2026!"})
+    assert r.status_code==200
+    h={"Authorization":f"Bearer {r.json()['access_token']}"}
+    assert client.get("/api/v1/tenant-portal/me",headers=h).status_code==200
+    assert client.get("/api/v1/admin/overview",headers=h).status_code==403
