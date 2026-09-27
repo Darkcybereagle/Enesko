@@ -111,28 +111,32 @@ class TenantRequestOut(BaseModel):
 
 
 def seed_phase5(db: Session) -> None:
-    if db.scalar(select(Tenant).where(Tenant.name == "Demo Sports Tenant")):
-        return
     from app.models import Mall
     mall = db.scalar(select(Mall).where(Mall.name == "Ikeja City Mall"))
     if not mall:
         return
-    tenant = Tenant(
-        mall_id=mall.id, name="Demo Sports Tenant", unit="DEMO-G12",
-        primary_contact_name="Demo Tenant Manager",
-        primary_contact="demo-tenant@example.invalid", data_status="DEMO",
-    )
-    db.add(tenant)
-    db.flush()
-    db.add(TenantAnnouncement(
-        mall_id=mall.id, title="Demo Tenant Operations Notice",
-        message="Development-only tenant announcement. Replace with authorized mall communication.",
-        data_status="DEMO",
-    ))
-    db.add(TenantDocument(
-        tenant_id=tenant.id, title="Demo Tenant Guide", document_type="GUIDE",
-        reference="DEMO — no production document attached", data_status="DEMO",
-    ))
+    tenant = db.scalar(select(Tenant).where(Tenant.name == "Demo Sports Tenant"))
+    if not tenant:
+        tenant = Tenant(
+            mall_id=mall.id, name="Demo Sports Tenant", unit="DEMO-G12",
+            primary_contact_name="Demo Tenant Manager",
+            primary_contact="demo-tenant@example.invalid", data_status="DEMO",
+        )
+        db.add(tenant)
+        db.flush()
+    if not db.scalar(select(TenantAnnouncement).where(TenantAnnouncement.title == "Demo Tenant Operations Notice")):
+        db.add(TenantAnnouncement(
+            mall_id=mall.id, title="Demo Tenant Operations Notice",
+            message="Development-only tenant announcement. Replace with authorized mall communication.",
+            data_status="DEMO",
+        ))
+    if not db.scalar(select(TenantDocument).where(
+        TenantDocument.tenant_id == tenant.id, TenantDocument.title == "Demo Tenant Guide"
+    )):
+        db.add(TenantDocument(
+            tenant_id=tenant.id, title="Demo Tenant Guide", document_type="GUIDE",
+            reference="DEMO — no production document attached", data_status="DEMO",
+        ))
     db.commit()
 
 
