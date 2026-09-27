@@ -64,3 +64,7 @@ def require_roles(*roles:Role):
 def seed_security(db:Session):
     if not db.scalar(select(User).where(User.email=="admin@enesko.local")):
         db.add(User(email="admin@enesko.local",full_name="ENESKO Demo Administrator",password_hash=hash_password(settings.demo_admin_password),role=Role.PLATFORM_SUPER_ADMIN.value));db.commit()
+    from app.phase5 import Tenant
+    tenant=db.scalar(select(Tenant).where(Tenant.name=="Demo Sports Tenant"))
+    if tenant and not db.scalar(select(User).where(User.email=="tenant@enesko.local")):
+        db.add(User(email="tenant@enesko.local",full_name="Demo Tenant Administrator",password_hash=hash_password(settings.demo_tenant_password),role=Role.TENANT_ADMINISTRATOR.value,tenant_id=tenant.id));db.commit()
