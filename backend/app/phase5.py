@@ -7,6 +7,7 @@ from sqlalchemy.orm import Mapped, Session, mapped_column
 
 from app.database import Base, get_db
 from app.phase3 import Case, CaseCreate, CaseOut, create_case_record
+from app.security import Role, User, get_current_user
 
 
 class Tenant(Base):
@@ -141,6 +142,12 @@ def seed_phase5(db: Session) -> None:
 
 
 router = APIRouter(prefix="/api/v1", tags=["Tenant Platform"])
+STAFF_ROLES={Role.PLATFORM_SUPER_ADMIN.value,Role.MALL_ADMINISTRATOR.value,Role.TENANT_MANAGEMENT.value}
+TENANT_ROLES={Role.TENANT_ADMINISTRATOR.value,Role.TENANT_STAFF.value}
+def _authorize_tenant(user:User,tenant_id:int):
+    if user.role in STAFF_ROLES:return
+    if user.role in TENANT_ROLES and user.tenant_id==tenant_id:return
+    raise HTTPException(status_code=403,detail="Tenant access denied")
 
 
 def _tenant_or_404(db: Session, tenant_id: int) -> Tenant:
@@ -151,17 +158,21 @@ def _tenant_or_404(db: Session, tenant_id: int) -> Tenant:
 
 
 @router.get("/tenants", response_model=list[TenantOut])
-def list_tenants(db: Session = Depends(get_db)):
-    return list(db.scalars(select(Tenant).where(Tenant.active.is_(True)).order_by(Tenant.name)).all())
+def list_tenants(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    stmt=select(Tenant).where(Tenant.active.is_(True))
+    if user.role in TENANT_ROLES:stmt=stmt.where(Tenant.id==user.tenant_id)
+    elif user.role not in STAFF_ROLES:raise HTTPException(status_code=403,detail="Tenant access denied")
+    return list(db.scalars(stmt.order_by(Tenant.name)).all())
 
 
 @router.get("/tenants/{tenant_id}", response_model=TenantOut)
-def get_tenant(tenant_id: int, db: Session = Depends(get_db)):
-    return _tenant_or_404(db, tenant_id)
+def get_tenant(tenant_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    _authorize_tenant(user,tenant_id);return _tenant_or_404(db,tenant_id)
 
 
 @router.post("/tenants/{tenant_id}/requests", response_model=TenantRequestOut, status_code=201)
-def create_tenant_request(tenant_id: int, payload: TenantRequestCreate, db: Session = Depends(get_db)):
+def create_tenant_request(tenant_id: int, payload: TenantRequestCreate, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    _authorize_tenant(user,tenant_id)
     tenant = _tenant_or_404(db, tenant_id)
     case = create_case_record(db, CaseCreate(
         case_type=f"TENANT_{payload.request_type.upper()}",
@@ -177,8 +188,8 @@ def create_tenant_request(tenant_id: int, payload: TenantRequestCreate, db: Sess
 
 
 @router.get("/tenants/{tenant_id}/requests", response_model=list[TenantRequestOut])
-def list_tenant_requests(tenant_id: int, db: Session = Depends(get_db)):
-    _tenant_or_404(db, tenant_id)
+def list_tenant_requests(tenant_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    _authorize_tenant(user,tenant_id);_tenant_or_404(db,tenant_id)
     links = list(db.scalars(select(TenantRequest).where(TenantRequest.tenant_id == tenant_id)
                             .order_by(TenantRequest.created_at.desc())).all())
     from app.phase3 import Case
@@ -189,8 +200,8 @@ def list_tenant_requests(tenant_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/tenants/{tenant_id}/announcements", response_model=list[TenantAnnouncementOut])
-def tenant_announcements(tenant_id: int, db: Session = Depends(get_db)):
-    tenant = _tenant_or_404(db, tenant_id)
+def tenant_announcements(tenant_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    _authorize_tenant(user,tenant_id);tenant=_tenant_or_404(db,tenant_id)
     return list(db.scalars(
         select(TenantAnnouncement).where(
             TenantAnnouncement.mall_id == tenant.mall_id, TenantAnnouncement.active.is_(True)
@@ -199,16 +210,16 @@ def tenant_announcements(tenant_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/tenants/{tenant_id}/documents", response_model=list[TenantDocumentOut])
-def tenant_documents(tenant_id: int, db: Session = Depends(get_db)):
-    _tenant_or_404(db, tenant_id)
+def tenant_documents(tenant_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    _authorize_tenant(user,tenant_id);_tenant_or_404(db,tenant_id)
     return list(db.scalars(
         select(TenantDocument).where(TenantDocument.tenant_id == tenant_id).order_by(TenantDocument.created_at.desc())
     ).all())
 
 
 @router.get("/tenants/{tenant_id}/metrics", response_model=TenantMetricsOut)
-def tenant_metrics(tenant_id: int, db: Session = Depends(get_db)):
-    _tenant_or_404(db, tenant_id)
+def tenant_metrics(tenant_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    _authorize_tenant(user,tenant_id);_tenant_or_404(db,tenant_id)
     total = db.scalar(select(func.count()).select_from(TenantRequest).where(TenantRequest.tenant_id == tenant_id)) or 0
     resolved = db.scalar(
         select(func.count()).select_from(TenantRequest).join(Case, Case.id == TenantRequest.case_id).where(
