@@ -27,3 +27,14 @@ def test_tenant_requests_list(client):
     response = client.get(f"/api/v1/tenants/{tenant['id']}/requests")
     assert response.status_code == 200
     assert response.json()
+
+
+def test_tenant_announcements_documents_and_metrics(client):
+    tenant = client.get("/api/v1/tenants").json()[0]
+    announcements = client.get(f"/api/v1/tenants/{tenant['id']}/announcements")
+    documents = client.get(f"/api/v1/tenants/{tenant['id']}/documents")
+    metrics = client.get(f"/api/v1/tenants/{tenant['id']}/metrics")
+    assert announcements.status_code == 200 and announcements.json()
+    assert documents.status_code == 200 and documents.json()
+    assert metrics.status_code == 200
+    assert metrics.json()["tenant_id"] == tenant["id"]
