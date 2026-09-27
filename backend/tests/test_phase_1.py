@@ -1,7 +1,7 @@
 def test_health(client):
     response = client.get("/health")
     assert response.status_code == 200
-    assert response.json()["implemented_phases"] == [1, 2]
+    assert response.json()["implemented_phases"] == [1, 2, 3, 4, 5]
 
 
 def test_mall_core(client):
