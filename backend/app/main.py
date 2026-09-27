@@ -6,7 +6,9 @@ from fastapi.responses import FileResponse
 from app.api import router as core_router
 from app.config import settings
 from app.database import Base, engine
-from app.phase3 import router as cases_router\nfrom app.phase4 import router as navigation_router\nfrom app.phase5 import router as tenant_router
+from app.phase3 import router as cases_router
+from app.phase4 import router as navigation_router
+from app.phase5 import router as tenant_router
 
 
 def create_app() -> FastAPI:
@@ -34,6 +36,8 @@ def create_app() -> FastAPI:
 
     app.include_router(core_router)
     app.include_router(cases_router)
+    app.include_router(navigation_router)
+    app.include_router(tenant_router)
     return app
 
 
