@@ -2,11 +2,11 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import Boolean, DateTime, ForeignKey, String, select
+from sqlalchemy import Boolean, DateTime, ForeignKey, String, Text, func, select
 from sqlalchemy.orm import Mapped, Session, mapped_column
 
 from app.database import Base, get_db
-from app.phase3 import CaseCreate, CaseOut, create_case_record
+from app.phase3 import Case, CaseCreate, CaseOut, create_case_record
 
 
 class Tenant(Base):
@@ -30,6 +30,28 @@ class TenantRequest(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
+class TenantAnnouncement(Base):
+    __tablename__ = "tenant_announcements"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    mall_id: Mapped[int] = mapped_column(ForeignKey("malls.id", ondelete="CASCADE"), index=True)
+    title: Mapped[str] = mapped_column(String(240))
+    message: Mapped[str] = mapped_column(Text)
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
+    data_status: Mapped[str] = mapped_column(String(30), default="DEMO")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class TenantDocument(Base):
+    __tablename__ = "tenant_documents"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tenant_id: Mapped[int] = mapped_column(ForeignKey("tenants.id", ondelete="CASCADE"), index=True)
+    title: Mapped[str] = mapped_column(String(240))
+    document_type: Mapped[str] = mapped_column(String(80))
+    reference: Mapped[str] = mapped_column(String(300))
+    data_status: Mapped[str] = mapped_column(String(30), default="DEMO")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
 class TenantOut(BaseModel):
     id: int
     mall_id: int
@@ -40,6 +62,35 @@ class TenantOut(BaseModel):
     active: bool
     data_status: str
     model_config = ConfigDict(from_attributes=True)
+
+
+class TenantAnnouncementOut(BaseModel):
+    id: int
+    mall_id: int
+    title: str
+    message: str
+    active: bool
+    data_status: str
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+
+class TenantDocumentOut(BaseModel):
+    id: int
+    tenant_id: int
+    title: str
+    document_type: str
+    reference: str
+    data_status: str
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+
+class TenantMetricsOut(BaseModel):
+    tenant_id: int
+    total_requests: int
+    open_requests: int
+    resolved_requests: int
 
 
 class TenantRequestCreate(BaseModel):
@@ -66,10 +117,21 @@ def seed_phase5(db: Session) -> None:
     mall = db.scalar(select(Mall).where(Mall.name == "Ikeja City Mall"))
     if not mall:
         return
-    db.add(Tenant(
+    tenant = Tenant(
         mall_id=mall.id, name="Demo Sports Tenant", unit="DEMO-G12",
         primary_contact_name="Demo Tenant Manager",
         primary_contact="demo-tenant@example.invalid", data_status="DEMO",
+    )
+    db.add(tenant)
+    db.flush()
+    db.add(TenantAnnouncement(
+        mall_id=mall.id, title="Demo Tenant Operations Notice",
+        message="Development-only tenant announcement. Replace with authorized mall communication.",
+        data_status="DEMO",
+    ))
+    db.add(TenantDocument(
+        tenant_id=tenant.id, title="Demo Tenant Guide", document_type="GUIDE",
+        reference="DEMO — no production document attached", data_status="DEMO",
     ))
     db.commit()
 
@@ -120,3 +182,34 @@ def list_tenant_requests(tenant_id: int, db: Session = Depends(get_db)):
     return [{"id": link.id, "tenant_id": link.tenant_id, "case_id": link.case_id,
              "request_type": link.request_type, "created_at": link.created_at, "case": cases[link.case_id]}
             for link in links]
+
+
+@router.get("/tenants/{tenant_id}/announcements", response_model=list[TenantAnnouncementOut])
+def tenant_announcements(tenant_id: int, db: Session = Depends(get_db)):
+    tenant = _tenant_or_404(db, tenant_id)
+    return list(db.scalars(
+        select(TenantAnnouncement).where(
+            TenantAnnouncement.mall_id == tenant.mall_id, TenantAnnouncement.active.is_(True)
+        ).order_by(TenantAnnouncement.created_at.desc())
+    ).all())
+
+
+@router.get("/tenants/{tenant_id}/documents", response_model=list[TenantDocumentOut])
+def tenant_documents(tenant_id: int, db: Session = Depends(get_db)):
+    _tenant_or_404(db, tenant_id)
+    return list(db.scalars(
+        select(TenantDocument).where(TenantDocument.tenant_id == tenant_id).order_by(TenantDocument.created_at.desc())
+    ).all())
+
+
+@router.get("/tenants/{tenant_id}/metrics", response_model=TenantMetricsOut)
+def tenant_metrics(tenant_id: int, db: Session = Depends(get_db)):
+    _tenant_or_404(db, tenant_id)
+    total = db.scalar(select(func.count()).select_from(TenantRequest).where(TenantRequest.tenant_id == tenant_id)) or 0
+    resolved = db.scalar(
+        select(func.count()).select_from(TenantRequest).join(Case, Case.id == TenantRequest.case_id).where(
+            TenantRequest.tenant_id == tenant_id, Case.status.in_(["RESOLVED", "CLOSED"])
+        )
+    ) or 0
+    return {"tenant_id": tenant_id, "total_requests": total, "open_requests": total - resolved,
+            "resolved_requests": resolved}
