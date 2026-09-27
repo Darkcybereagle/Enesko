@@ -9,6 +9,7 @@ from app.schemas import (
     KnowledgeOut, MallOut, StoreOut, ZoneOut,
 )
 from app.services import orchestrate
+from app.security import Role, User, require_roles
 
 router = APIRouter(prefix="/api/v1")
 
@@ -64,7 +65,7 @@ def list_facilities(db: Session = Depends(get_db)):
 
 
 @router.post("/knowledge", response_model=KnowledgeOut, status_code=201, tags=["Knowledge"])
-def create_knowledge(payload: KnowledgeCreate, db: Session = Depends(get_db)):
+def create_knowledge(payload: KnowledgeCreate, db: Session = Depends(get_db), user: User = Depends(require_roles(Role.PLATFORM_SUPER_ADMIN, Role.MALL_ADMINISTRATOR))):
     doc = KnowledgeDocument(**payload.model_dump())
     db.add(doc)
     db.commit()

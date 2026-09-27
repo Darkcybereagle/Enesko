@@ -1,4 +1,4 @@
-def test_case_lifecycle_and_notification(client):
+def test_case_lifecycle_and_notification(client, admin_headers):
     created = client.post("/api/v1/cases", json={
         "case_type": "LOST_FOUND",
         "summary": "Lost black backpack",
@@ -13,13 +13,13 @@ def test_case_lifecycle_and_notification(client):
     reference = created.json()["reference"]
     assert reference.startswith("ENK-")
 
-    updated = client.patch(f"/api/v1/cases/{reference}/status", json={
+    updated = client.patch(f"/api/v1/cases/{reference}/status", headers=admin_headers, json={
         "status": "INVESTIGATING", "note": "Assigned to customer service", "actor": "demo-staff"
     })
     assert updated.status_code == 200
     assert updated.json()["status"] == "INVESTIGATING"
 
-    notifications = client.get("/api/v1/notifications")
+    notifications = client.get("/api/v1/notifications", headers=admin_headers)
     assert notifications.status_code == 200
     assert any(item["case_id"] == created.json()["id"] for item in notifications.json())
 

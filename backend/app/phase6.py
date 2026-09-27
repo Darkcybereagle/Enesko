@@ -6,6 +6,7 @@ from sqlalchemy import DateTime, ForeignKey, String, Text, select
 from sqlalchemy.orm import Mapped, Session, mapped_column
 from app.database import Base, get_db
 from app.models import Mall
+from app.security import Role,User,require_roles
 
 class Activation(Base):
     __tablename__="activations"
@@ -56,7 +57,7 @@ def list_activations(db:Session=Depends(get_db)):
     return list(db.scalars(select(Activation).order_by(Activation.created_at.desc())).all())
 
 @router.patch("/activations/{reference}/stage",response_model=ActivationOut)
-def update_activation(reference:str,payload:ActivationStageUpdate,db:Session=Depends(get_db)):
+def update_activation(reference:str,payload:ActivationStageUpdate,db:Session=Depends(get_db),user:User=Depends(require_roles(Role.PLATFORM_SUPER_ADMIN,Role.MALL_ADMINISTRATOR,Role.MARKETING))):
     row=db.scalar(select(Activation).where(Activation.reference==reference))
     if not row: raise HTTPException(404,"Activation not found")
     row.current_stage=payload.current_stage.upper(); row.status=payload.status.upper(); db.commit(); db.refresh(row); return row

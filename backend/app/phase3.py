@@ -7,6 +7,7 @@ from sqlalchemy import DateTime, ForeignKey, String, Text, select
 from sqlalchemy.orm import Mapped, Session, mapped_column, relationship
 
 from app.database import Base, get_db
+from app.security import Role, User, require_roles
 
 
 class Case(Base):
@@ -177,7 +178,7 @@ def get_case(reference: str, db: Session = Depends(get_db)):
 
 
 @router.patch("/cases/{reference}/status", response_model=CaseOut)
-def update_case_status(reference: str, payload: CaseStatusUpdate, db: Session = Depends(get_db)):
+def update_case_status(reference: str, payload: CaseStatusUpdate, db: Session = Depends(get_db), user: User = Depends(require_roles(Role.PLATFORM_SUPER_ADMIN, Role.MALL_ADMINISTRATOR, Role.CUSTOMER_SERVICE, Role.SECURITY))):
     case = _case_or_404(db, reference)
     case.status = payload.status.upper()
     case.updated_at = datetime.utcnow()
@@ -188,7 +189,7 @@ def update_case_status(reference: str, payload: CaseStatusUpdate, db: Session = 
 
 
 @router.post("/cases/{reference}/events", response_model=CaseEventOut, status_code=201)
-def add_case_event(reference: str, payload: CaseEventCreate, db: Session = Depends(get_db)):
+def add_case_event(reference: str, payload: CaseEventCreate, db: Session = Depends(get_db), user: User = Depends(require_roles(Role.PLATFORM_SUPER_ADMIN, Role.MALL_ADMINISTRATOR, Role.CUSTOMER_SERVICE, Role.SECURITY))):
     case = _case_or_404(db, reference)
     event = CaseEvent(case_id=case.id, **payload.model_dump())
     case.updated_at = datetime.utcnow()
@@ -199,5 +200,5 @@ def add_case_event(reference: str, payload: CaseEventCreate, db: Session = Depen
 
 
 @router.get("/notifications", response_model=list[NotificationOut])
-def list_notifications(db: Session = Depends(get_db)):
+def list_notifications(db: Session = Depends(get_db), user: User = Depends(require_roles(Role.PLATFORM_SUPER_ADMIN, Role.MALL_ADMINISTRATOR, Role.CUSTOMER_SERVICE))):
     return list(db.scalars(select(Notification).order_by(Notification.created_at.desc())).all())

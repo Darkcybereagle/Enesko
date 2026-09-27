@@ -4,6 +4,7 @@ from pydantic import BaseModel,ConfigDict
 from sqlalchemy import DateTime,Integer,String,select
 from sqlalchemy.orm import Mapped,Session,mapped_column
 from app.database import Base,get_db
+from app.security import Role,User,require_roles
 class ParkingStatus(Base):
     __tablename__="parking_status"
     id:Mapped[int]=mapped_column(primary_key=True)
@@ -26,7 +27,7 @@ router=APIRouter(prefix="/api/v1",tags=["Parking"])
 @router.get("/parking",response_model=list[ParkingOut])
 def parking(db:Session=Depends(get_db)): return list(db.scalars(select(ParkingStatus)).all())
 @router.patch("/parking/{area_code}/status",response_model=ParkingOut)
-def update(area_code:str,payload:ParkingUpdate,db:Session=Depends(get_db)):
+def update(area_code:str,payload:ParkingUpdate,db:Session=Depends(get_db),user:User=Depends(require_roles(Role.PLATFORM_SUPER_ADMIN,Role.MALL_ADMINISTRATOR,Role.PARKING))):
     row=db.scalar(select(ParkingStatus).where(ParkingStatus.area_code==area_code))
     if not row: raise HTTPException(404,"Parking area not found")
     allowed={"AVAILABLE","BUSY","NEAR_CAPACITY","FULL","CLOSED","UNKNOWN"}

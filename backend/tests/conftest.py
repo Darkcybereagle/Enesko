@@ -24,3 +24,8 @@ def reset_database():
 @pytest.fixture
 def client():
     return TestClient(app)
+
+@pytest.fixture
+def admin_headers(client):
+    r=client.post("/api/v1/auth/login",data={"username":"admin@enesko.local","password":"EneskoDemo2026!"})
+    return {"Authorization":f"Bearer {r.json()['access_token']}"}
