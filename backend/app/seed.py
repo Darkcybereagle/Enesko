@@ -3,7 +3,7 @@ from sqlalchemy import select
 
 from app.database import Base, SessionLocal, engine
 from app.models import Category, Facility, Floor, KnowledgeDocument, Mall, Store, Zone
-from app.phase3 import seed_phase3\nfrom app.phase4 import seed_phase4
+from app.phase3 import seed_phase3\nfrom app.phase4 import seed_phase4\nfrom app.phase5 import seed_phase5
 
 
 def seed_core(db) -> None:
@@ -72,7 +72,7 @@ def seed() -> None:
     try:
         seed_core(db)
         seed_phase3(db)
-        print("Enesko Phase 1-4 demo seed complete; existing records were not duplicated.")
+        print("Enesko Phase 1-5 demo seed complete; existing records were not duplicated.")
     finally:
         db.close()
 
