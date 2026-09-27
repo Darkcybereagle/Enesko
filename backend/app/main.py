@@ -21,7 +21,7 @@ from app.phase12 import router as smart_parking_router
 from app.phase13 import router as analytics_router
 
 def create_app()->FastAPI:
-    Base.metadata.create_all(bind=engine)
+    if settings.app_env != "production": Base.metadata.create_all(bind=engine)
     app=FastAPI(title="Enesko",version="0.20.0",description="ENESKO Category 2 — secured platform and product interfaces")
     app.add_middleware(CORSMiddleware,allow_origins=settings.cors_origin_list,allow_credentials=True,allow_methods=["*"],allow_headers=["*"])
     app.middleware("http")(audit_mutations)
