@@ -6,15 +6,15 @@ from fastapi.responses import FileResponse
 from app.api import router as core_router
 from app.config import settings
 from app.database import Base, engine
-from app.phase3 import router as cases_router
+from app.phase3 import router as cases_router\nfrom app.phase4 import router as navigation_router
 
 
 def create_app() -> FastAPI:
     Base.metadata.create_all(bind=engine)
     app = FastAPI(
         title="Enesko",
-        version="0.3.0",
-        description="Enesko Phases 1-3 backend: mall core, knowledge and unified cases",
+        version="0.4.0",
+        description="Enesko Phases 1-4 backend: mall core, knowledge, cases and indoor navigation",
     )
     app.add_middleware(
         CORSMiddleware,
@@ -26,7 +26,7 @@ def create_app() -> FastAPI:
 
     @app.get("/health", tags=["System"])
     def health():
-        return {"status": "ok", "service": "Enesko", "implemented_phases": [1, 2, 3]}
+        return {"status": "ok", "service": "Enesko", "implemented_phases": [1, 2, 3, 4]}
 
     @app.get("/", include_in_schema=False)
     def test_page():
