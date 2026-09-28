@@ -2,8 +2,7 @@
 
 import { FormEvent, useState } from "react";
 
-const API =
-  process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+const API = process.env.NEXT_PUBLIC_API_URL || "/backend";
 
 const DEMO_EMAIL = "admin@enesko.local";
 const DEMO_PASSWORD = "EneskoDemo2026!";
@@ -19,6 +18,7 @@ export default function Admin() {
   const [parking, setParking] = useState<any[]>([]);
   const [error, setError] = useState("");
   const [signingIn, setSigningIn] = useState(false);
+  const [credentialsReset, setCredentialsReset] = useState(false);
 
   async function load(t: string) {
     const headers = { Authorization: "Bearer " + t };
@@ -31,7 +31,18 @@ export default function Admin() {
       ]);
 
     if (!overviewResponse.ok) {
-      throw new Error("Admin overview could not be loaded.");
+      const body = await overviewResponse.json().catch(() => null);
+      throw new Error(body?.detail || "Admin overview could not be loaded.");
+    }
+
+    for (const [name, response] of [
+      ["cases", casesResponse],
+      ["activations", activationsResponse],
+      ["parking", parkingResponse],
+    ] as const) {
+      if (!response.ok) {
+        throw new Error(`Could not load ${name} data (HTTP ${response.status}).`);
+      }
     }
 
     setData(await overviewResponse.json());
@@ -43,6 +54,7 @@ export default function Admin() {
   async function login(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
+    setCredentialsReset(false);
     setSigningIn(true);
 
     try {
@@ -57,16 +69,18 @@ export default function Admin() {
 
       if (!response.ok) {
         const body = await response.json().catch(() => null);
-        setError(body?.detail || "Invalid email or password.");
+        setError(body?.detail || `Login failed (HTTP ${response.status}).`);
         return;
       }
 
       const result = await response.json();
-      setToken(result.access_token);
       await load(result.access_token);
-    } catch {
+      setToken(result.access_token);
+    } catch (err) {
       setError(
-        "Could not reach the ENESKO backend. Confirm http://127.0.0.1:8000/health is available."
+        err instanceof Error
+          ? err.message
+          : "ENESKO could not complete the sign-in request."
       );
     } finally {
       setSigningIn(false);
@@ -77,6 +91,7 @@ export default function Admin() {
     setEmail(DEMO_EMAIL);
     setPassword(DEMO_PASSWORD);
     setError("");
+    setCredentialsReset(true);
   }
 
   return (
@@ -146,6 +161,9 @@ export default function Admin() {
               </div>
             </form>
 
+            {credentialsReset && (
+              <p className="status">Demo credentials restored.</p>
+            )}
             {error && <p className="danger">{error}</p>}
           </div>
         ) : (
