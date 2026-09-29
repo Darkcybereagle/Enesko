@@ -106,21 +106,17 @@ def seed_core(db):
     else:
         top.name = "Top Floor"
 
-    legacy_zones = list(
-        db.scalars(
-            select(Zone).where(
-                Zone.code.in_(["DEMO-GF-A", "DEMO-GF-B", "DEMO-FF-A"])
-            )
-        ).all()
-    )
-    zone_targets = [
-        ("ICM-GF-A", "Ground Floor Reference Zone A"),
-        ("ICM-GF-B", "Ground Floor Reference Zone B"),
-        ("ICM-TF-A", "Top Floor Reference Zone A"),
-    ]
-    for zone, (code, name) in zip(legacy_zones, zone_targets):
-        zone.code = code
-        zone.name = name
+    zone_migrations = {
+        "DEMO-GF-A": ("ICM-GF-A", "Ground Floor Reference Zone A"),
+        "DEMO-GF-B": ("ICM-GF-B", "Ground Floor Reference Zone B"),
+        "DEMO-FF-A": ("ICM-TF-A", "Top Floor Reference Zone A"),
+    }
+    for old_code, (new_code, new_name) in zone_migrations.items():
+        zone = db.scalar(select(Zone).where(Zone.code == old_code))
+        existing_target = db.scalar(select(Zone).where(Zone.code == new_code))
+        if zone and not existing_target:
+            zone.code = new_code
+            zone.name = new_name
 
     for store in list(db.scalars(select(Store)).all()):
         if store.data_status == "DEMO" or store.name.startswith("Demo "):
