@@ -36,7 +36,7 @@ class CategoryOut(BaseModel):
 class StoreOut(BaseModel):
     id: int
     mall_id: int
-    floor_id: int
+    floor_id: int | None
     zone_id: int | None
     name: str
     unit: str | None
@@ -44,6 +44,11 @@ class StoreOut(BaseModel):
     nearest_landmark: str | None
     opening_hours: str | None
     data_status: str
+    source_name: str | None
+    source_url: str | None
+    verified_at: datetime | None
+    expires_at: datetime | None
+    map_node_code: str | None
     active: bool
     categories: list[CategoryOut] = Field(default_factory=list)
     model_config = ConfigDict(from_attributes=True)
