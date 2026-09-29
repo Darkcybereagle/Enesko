@@ -411,6 +411,10 @@ select.input {
   margin: 28px 0;
 }
 
+.metricGridFive {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
 .metricCard {
   display: grid;
   gap: 8px;
@@ -499,6 +503,123 @@ select.input {
   margin: 0;
 }
 
+.lifecycle {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin: 22px 0 18px;
+}
+
+.lifecycle::before {
+  content: "";
+  position: absolute;
+  left: 7%;
+  right: 7%;
+  top: 15px;
+  height: 2px;
+  background: var(--line);
+}
+
+.lifecycleStep {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  color: var(--muted);
+  text-align: center;
+  font-size: 11px;
+}
+
+.lifecycleStep.complete,
+.lifecycleStep.active {
+  color: var(--text);
+}
+
+.lifecycleDot {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 2px solid var(--line);
+  border-radius: 50%;
+  background: var(--bg-soft);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.lifecycleStep.complete .lifecycleDot {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.lifecycleStep.active .lifecycleDot {
+  box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent) 13%, transparent);
+}
+
+.requestTimeline {
+  display: grid;
+  gap: 0;
+  margin: 18px 0 6px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--panel) 72%, var(--bg-soft));
+}
+
+.timelineLabel {
+  margin-bottom: 10px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.timelineItem {
+  position: relative;
+  display: grid;
+  grid-template-columns: 14px 1fr;
+  gap: 10px;
+  padding: 8px 0;
+}
+
+.timelineItem:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  left: 5px;
+  top: 22px;
+  bottom: -6px;
+  width: 1px;
+  background: var(--line);
+}
+
+.timelineDot {
+  width: 11px;
+  height: 11px;
+  margin-top: 4px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 11%, transparent);
+}
+
+.timelineItem > div {
+  display: grid;
+  gap: 4px;
+}
+
+.timelineItem strong {
+  font-size: 12px;
+}
+
+.timelineItem small {
+  color: var(--muted);
+  font-size: 11px;
+}
+
 .requestMeta {
   margin-top: 16px;
   color: var(--muted);
@@ -566,6 +687,12 @@ select.input {
   margin-bottom: 0;
 }
 
+@media (max-width: 1050px) {
+  .metricGridFive {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 900px) {
   .loginLayout,
   .workspaceGrid {
@@ -612,9 +739,18 @@ select.input {
   }
 
   .metricGrid,
+  .metricGridFive,
   .resourceGrid,
   .fieldGrid {
     grid-template-columns: 1fr;
+  }
+
+  .lifecycle {
+    gap: 4px;
+  }
+
+  .lifecycleStep {
+    font-size: 10px;
   }
 
   .workspaceHeader > .button {
