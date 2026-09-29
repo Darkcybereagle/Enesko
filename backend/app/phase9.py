@@ -100,13 +100,20 @@ def shows(db: Session = Depends(get_db)):
 
 
 @router.get("/cinema/integration-status")
-def integration_status():
+def integration_status(db: Session = Depends(get_db)):
+    now = datetime.utcnow()
+    live_row = db.scalar(
+        select(CinemaShow).where(
+            CinemaShow.data_status == "INTEGRATION_VERIFIED",
+            or_(CinemaShow.expires_at.is_(None), CinemaShow.expires_at >= now),
+        )
+    )
     return {
         "primary": "official_api",
         "secondary": "authorized_sync_import",
         "fallback": "authorized_staff_admin",
         "configured": cinema_adapter.configured,
-        "live_data_available": cinema_adapter.configured,
+        "live_data_available": live_row is not None,
         "cinema_name": "Silverbird Cinemas, Ikeja City Mall",
         "box_office_hours": "Mon-Sun 10:00-22:00",
         "movie_enquiry": "+234 902 606 7603",
