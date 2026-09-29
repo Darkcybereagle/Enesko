@@ -2,7 +2,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, ConfigDict
-from sqlalchemy import DateTime, String, select
+from sqlalchemy import DateTime, String, or_, select
 from sqlalchemy.orm import Mapped, Session, mapped_column
 
 from app.database import Base, get_db
@@ -46,7 +46,11 @@ router = APIRouter(prefix="/api/v1", tags=["Cinema"])
 
 @router.get("/cinema/shows", response_model=list[CinemaOut])
 def shows(db: Session = Depends(get_db)):
-    return list(db.scalars(select(CinemaShow).order_by(CinemaShow.id)).all())
+    now = datetime.utcnow()
+    stmt = select(CinemaShow).where(
+        or_(CinemaShow.expires_at.is_(None), CinemaShow.expires_at >= now)
+    ).order_by(CinemaShow.id)
+    return list(db.scalars(stmt).all())
 
 
 @router.get("/cinema/integration-status")
