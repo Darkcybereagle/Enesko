@@ -1,50 +1,88 @@
 # ENESKO
 
-ENESKO is an intelligent mall operations platform. Category 1 implements the mall-operation domains and APIs (Phases 1–13). Category 2 adds production-oriented platform engineering and the customer, staff and tenant product interfaces. Category 2 implementation is complete and is frozen after the local release gate passes.
+ENESKO is an intelligent mall operations platform.
 
-## Category 2 applications
+- **Category 1:** core mall-operation domains and APIs (Phases 1–13).
+- **Category 2:** secured customer, staff and tenant product interfaces. **Complete & frozen.**
+- **Category 3:** intelligent channels and external integration layer. **Implementation complete; external activation is configuration-dependent.**
+
+## Applications
 
 - Customer Web — Next.js, port 3000
 - Admin Operations Dashboard — Next.js, port 3001
-- Tenant Portal — Next.js, port 3002, with near-live request lifecycle monitoring
+- Tenant Portal — Next.js, port 3002
 - FastAPI backend — port 8000
-- Authentication — JWT + Argon2
-- Authorization — ENESKO RBAC roles
-- Audit — mutation metadata audit trail
-- Database lifecycle — Alembic migrations, SQLite for local development and PostgreSQL-ready configuration
+
+## Category 3
+
+Category 3 has **8 phases**:
+
+1. AI tool orchestration
+2. Grounded knowledge retrieval
+3. Voice concierge
+4. WhatsApp channel
+5. Email channel
+6. Cinema integration
+7. Parking integration
+8. Integration health and release gate
+
+The Customer Web voice interface is ENESKO-branded, not a WhatsApp clone. WhatsApp remains a separate external channel using the native WhatsApp interface.
+
+External providers never report fake success. When credentials/endpoints are absent, ENESKO returns an explicit `NOT_CONFIGURED` state and retains safe local fallbacks.
+
+See `docs/CATEGORY_3.md` for the complete phase map, environment variables and release verification.
 
 ## Local setup
 
 Use Python 3.13 for this project.
 
 ```powershell
+cd C:\Users\hp\Desktop\Enesko
 git pull origin main
+
 .\venv\Scripts\Activate.ps1
 python -m pip install -r backend\requirements.txt
+
 cd backend
 python -m alembic upgrade head
 python -m app.seed
 pytest -q
-```
 
-Then run the backend:
-
-```powershell
-python -m uvicorn app.main:app --reload
-```
-
-In another PowerShell at the repository root:
-
-```powershell
+cd ..
 npm install
 npm run build
 ```
 
-Development interfaces can then be started individually:
+Category 3 adds no new Python or npm dependency beyond packages already present in the project requirements/workspaces.
+
+## Runtime
+
+Backend:
 
 ```powershell
+cd C:\Users\hp\Desktop\Enesko\backend
+..\venv\Scripts\Activate.ps1
+python -m uvicorn app.main:app --reload
+```
+
+Customer Web:
+
+```powershell
+cd C:\Users\hp\Desktop\Enesko
 npm run dev:customer
+```
+
+ENESKO OPS:
+
+```powershell
+cd C:\Users\hp\Desktop\Enesko
 npm run dev:admin
+```
+
+Tenant Portal:
+
+```powershell
+cd C:\Users\hp\Desktop\Enesko
 npm run dev:tenant
 ```
 
@@ -52,24 +90,39 @@ Local staff login: `admin@enesko.local` / `EneskoLocal2026!`
 
 Local tenant login: `tenant@enesko.local` / `TenantLocal2026!`
 
-These accounts exist only for local development and automated testing. The tenant account is attached to an ENESKO reference workspace, not to an asserted real ICM tenant relationship. Production identities must come from authorized mall onboarding and must use production secrets.
+Local accounts exist only for development/testing. Production identities and integration secrets must come from authorized deployment configuration.
 
 ## Verification
 
-Backend release gate: all pytest tests must pass.
+Backend release gate:
 
-Frontend release gate: all three Next.js applications must complete `npm run build`.
+```powershell
+cd C:\Users\hp\Desktop\Enesko\backend
+pytest -q
+```
+
+Frontend release gate:
+
+```powershell
+cd C:\Users\hp\Desktop\Enesko
+npm run build
+```
 
 Swagger: http://127.0.0.1:8000/docs
 
 Health: http://127.0.0.1:8000/health
 
+Category 3 status: http://127.0.0.1:8000/api/v1/category3/status
+
+Integration status: http://127.0.0.1:8000/api/v1/integrations/status
+
 ## Data policy
 
-ENESKO must distinguish public-reference information, staff-verified operational data, authorized integration data, reference models and test fixtures.
+ENESKO distinguishes public-reference information, staff-verified operational data, authorized integration data, reference models and test fixtures.
 
-- Public directory facts may be seeded only when their source and verification metadata are retained.
-- Live operational claims must come from fresh staff updates or authorized integrations.
-- Reference workspaces and route models must never be presented as authorized live mall data.
+- Public directory facts retain source and verification metadata.
+- Live operational claims come only from fresh staff updates or authorized integrations.
+- Reference workspaces and route models are not presented as authorized live mall data.
 - Test fixtures are isolated to `APP_ENV=test`.
-- Unavailable live data must be described as unavailable rather than guessed.
+- Unavailable live data is described as unavailable instead of guessed.
+- External integrations are not described as live merely because an adapter is configured.
