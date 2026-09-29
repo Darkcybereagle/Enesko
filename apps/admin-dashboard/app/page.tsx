@@ -53,6 +53,12 @@ export default function Admin() {
   async function readJson(response: Response, label: string) {
     const body = await response.json().catch(() => null);
     if (!response.ok) {
+      if (response.status === 401 && token) {
+        expireSession();
+        const error = new Error("Your ENESKO OPS session expired. Sign in again to continue.");
+        error.name = "SessionExpiredError";
+        throw error;
+      }
       throw new Error(body?.detail || `${label} failed (HTTP ${response.status}).`);
     }
     return body;
@@ -263,7 +269,7 @@ export default function Admin() {
     }
   }
 
-  function signOut() {
+  function clearSession() {
     setToken("");
     setData(null);
     setCases([]);
@@ -275,8 +281,18 @@ export default function Admin() {
     setSelectedActivation(null);
     setSelectedParking(null);
     setActiveView("overview");
-    setError("");
     setStatusMessage("");
+    setBusy(false);
+  }
+
+  function expireSession() {
+    clearSession();
+    setError("Your ENESKO OPS session expired. Sign in again to continue.");
+  }
+
+  function signOut() {
+    clearSession();
+    setError("");
   }
 
   const metricCards: Array<[string, number, View]> = [
