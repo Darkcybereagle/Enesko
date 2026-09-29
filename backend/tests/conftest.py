@@ -28,10 +28,10 @@ def client():
 
 @pytest.fixture
 def admin_headers(client):
-    r=client.post("/api/v1/auth/login",data={"username":"admin@enesko.local","password":"EneskoDemo2026!"})
+    r=client.post("/api/v1/auth/login",data={"username":"admin@enesko.local","password":"EneskoLocal2026!"})
     return {"Authorization":f"Bearer {r.json()['access_token']}"}
 
 @pytest.fixture
 def tenant_headers(client):
-    r=client.post("/api/v1/auth/login",data={"username":"tenant@enesko.local","password":"TenantDemo2026!"})
+    r=client.post("/api/v1/auth/login",data={"username":"tenant@enesko.local","password":"TenantLocal2026!"})
     return {"Authorization":f"Bearer {r.json()['access_token']}"}
