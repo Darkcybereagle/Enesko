@@ -129,22 +129,10 @@ def create_case_record(db: Session, payload: CaseCreate) -> Case:
 
 
 def seed_phase3(db: Session) -> None:
-    if db.scalar(select(Case).where(Case.reference == "ENK-DEMO-CASE")):
-        return
-    case = Case(
-        reference="ENK-DEMO-CASE", case_type="COMPLAINT", status="OPEN", priority="NORMAL",
-        channel="web", summary="Demo facility complaint",
-        description="Development-only case used to verify the Phase 3 case workflow.",
-        contact="demo@example.invalid",
-    )
-    db.add(case)
-    db.flush()
-    db.add(CaseEvent(case_id=case.id, event_type="CREATED", note="Demo case created", actor="seed"))
-    db.add(Notification(
-        case_id=case.id, channel="dashboard", recipient="customer_service",
-        message="Demo Phase 3 case notification",
-    ))
-    db.commit()
+    legacy = db.scalar(select(Case).where(Case.reference == "ENK-DEMO-CASE"))
+    if legacy:
+        db.delete(legacy)
+        db.commit()
 
 
 router = APIRouter(prefix="/api/v1", tags=["Cases"])
