@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     local_tenant_password:str="TenantLocal2026!"
 
     whatsapp_graph_url:str="https://graph.facebook.com"
-    whatsapp_api_version:str="v23.0"
+    whatsapp_api_version:str=""
     whatsapp_phone_number_id:str=""
     whatsapp_access_token:str=""
     whatsapp_verify_token:str="CHANGE_ME_WHATSAPP_VERIFY_TOKEN"
@@ -40,7 +40,7 @@ class Settings(BaseSettings):
 
     @property
     def whatsapp_configured(self)->bool:
-        return bool(self.whatsapp_phone_number_id and self.whatsapp_access_token)
+        return bool(self.whatsapp_api_version and self.whatsapp_phone_number_id and self.whatsapp_access_token)
 
     @property
     def email_configured(self)->bool:
