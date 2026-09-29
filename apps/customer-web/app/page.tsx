@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useState } from "react";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "/backend";
 
-type Section = "home" | "stores" | "cinema" | "parking" | "navigate" | "lost" | "help";
+type Section = "home" | "voice" | "stores" | "cinema" | "parking" | "navigate" | "lost" | "help";
 
 type StoreItem = {
   id: number;
@@ -49,6 +49,7 @@ type CinemaStatus = {
 };
 
 const actions: Array<{ id: Section; title: string; copy: string }> = [
+  { id: "voice", title: "Voice concierge", copy: "Speak naturally and let ENESKO guide you." },
   { id: "stores", title: "Stores", copy: "Find brands and what they sell." },
   { id: "cinema", title: "Cinema", copy: "Check Silverbird information and official booking." },
   { id: "parking", title: "Parking", copy: "See published capacity and fresh staff status." },
@@ -78,6 +79,11 @@ export default function Home() {
   const [caseRef, setCaseRef] = useState("");
   const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState("");
+  const [voiceSessionRef, setVoiceSessionRef] = useState("");
+  const [voiceInput, setVoiceInput] = useState("");
+  const [voiceState, setVoiceState] = useState<"ready" | "listening" | "thinking">("ready");
+  const [voiceMessages, setVoiceMessages] = useState<Array<{ role: "user" | "assistant"; text: string }>>([]);
+  const [speechSupported, setSpeechSupported] = useState(true);
 
   useEffect(() => {
     const saved = window.localStorage.getItem("enesko-theme");
@@ -128,6 +134,117 @@ export default function Home() {
       setNotice(error instanceof Error ? error.message : "ENESKO could not answer that request.");
     } finally {
       setLoading(false);
+    }
+  }
+
+  function speak(text: string) {
+    if (!("speechSynthesis" in window)) return;
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = "en-NG";
+    utterance.rate = 1;
+    window.speechSynthesis.speak(utterance);
+  }
+
+  async function ensureVoiceSession() {
+    if (voiceSessionRef) return voiceSessionRef;
+
+    const response = await fetch(API + "/api/v1/voice/sessions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        direction: "INBOUND",
+        provider: "BROWSER_SPEECH",
+      }),
+    });
+    const body = await readJson(response, "Voice session");
+    setVoiceSessionRef(body.session_ref);
+    return body.session_ref as string;
+  }
+
+  async function sendVoiceTurn(text: string) {
+    const clean = text.trim();
+    if (!clean) return;
+
+    setVoiceState("thinking");
+    setNotice("");
+    setVoiceMessages((current) => [...current, { role: "user", text: clean }]);
+    setVoiceInput("");
+
+    try {
+      const ref = await ensureVoiceSession();
+      const response = await fetch(
+        API + `/api/v1/voice/sessions/${encodeURIComponent(ref)}/turn`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: clean }),
+        }
+      );
+      const body = await readJson(response, "Voice concierge");
+      const reply = body.answer || "I could not produce a response.";
+      setVoiceMessages((current) => [...current, { role: "assistant", text: reply }]);
+      speak(reply);
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Voice concierge is unavailable.");
+    } finally {
+      setVoiceState("ready");
+    }
+  }
+
+  function beginListening() {
+    const SpeechRecognition =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      setSpeechSupported(false);
+      setNotice("Speech recognition is not available in this browser. You can still type below.");
+      return;
+    }
+
+    setSpeechSupported(true);
+    const recognition = new SpeechRecognition();
+    recognition.lang = "en-NG";
+    recognition.interimResults = false;
+    recognition.continuous = false;
+
+    recognition.onstart = () => setVoiceState("listening");
+    recognition.onerror = () => {
+      setVoiceState("ready");
+      setNotice("I could not hear that clearly. Try again or type your request.");
+    };
+    recognition.onend = () => {
+      setVoiceState((current) => (current === "thinking" ? current : "ready"));
+    };
+    recognition.onresult = (event: any) => {
+      const transcript = event.results?.[0]?.[0]?.transcript || "";
+      if (transcript) void sendVoiceTurn(transcript);
+    };
+
+    recognition.start();
+  }
+
+  async function endVoiceSession() {
+    if (!voiceSessionRef) {
+      setVoiceMessages([]);
+      return;
+    }
+
+    try {
+      await fetch(
+        API + `/api/v1/voice/sessions/${encodeURIComponent(voiceSessionRef)}/complete`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({}),
+        }
+      );
+    } finally {
+      window.speechSynthesis?.cancel();
+      setVoiceSessionRef("");
+      setVoiceMessages([]);
+      setVoiceInput("");
+      setVoiceState("ready");
     }
   }
 
@@ -207,6 +324,9 @@ export default function Home() {
     setNotice("");
     setCaseRef("");
 
+    if (next === "voice") {
+      setVoiceState("ready");
+    }
     if (next === "stores" && stores.length === 0) await loadStores();
     if (next === "cinema" && !cinema) await loadCinema();
     if (next === "parking") await loadParking();
@@ -420,6 +540,101 @@ export default function Home() {
               </div>
             </section>
           </>
+        )}
+
+        {section === "voice" && (
+          <section className="contentSection voiceSection">
+            <div className="voiceHero">
+              <div>
+                <span className="eyebrow">ENESKO Voice</span>
+                <h1>Talk to the mall.</h1>
+                <p>
+                  Ask for a store, parking status, cinema information, indoor directions,
+                  lost-and-found help or a human handoff. ENESKO uses the same verified
+                  operational sources as the rest of the platform.
+                </p>
+              </div>
+              <span className="neutralBadge">
+                {speechSupported ? "Browser voice + ENESKO tools" : "Text fallback available"}
+              </span>
+            </div>
+
+            <div className="voiceLayout">
+              <div className="voiceConsole">
+                <button
+                  className={`voiceOrb voice-${voiceState}`}
+                  type="button"
+                  onClick={beginListening}
+                  disabled={voiceState === "thinking"}
+                  aria-label="Start speaking to ENESKO"
+                >
+                  <span className="voicePulse" />
+                  <strong>{voiceState === "listening" ? "Listening" : voiceState === "thinking" ? "Thinking" : "Speak"}</strong>
+                  <small>{voiceState === "ready" ? "Tap the mic" : "ENESKO Voice"}</small>
+                </button>
+
+                <div className="voiceHints">
+                  <button type="button" onClick={() => sendVoiceTurn("Where can I buy sports shoes?")}>
+                    Find sports shoes
+                  </button>
+                  <button type="button" onClick={() => sendVoiceTurn("What is the parking status right now?")}>
+                    Check parking
+                  </button>
+                  <button type="button" onClick={() => sendVoiceTurn("What movies are showing?")}>
+                    Ask about cinema
+                  </button>
+                </div>
+              </div>
+
+              <div className="voiceConversation">
+                <div className="voiceConversationHeader">
+                  <div>
+                    <span className="eyebrow">Conversation</span>
+                    <h2>Live concierge</h2>
+                  </div>
+                  {voiceMessages.length > 0 && (
+                    <button className="secondaryAction" type="button" onClick={endVoiceSession}>
+                      End session
+                    </button>
+                  )}
+                </div>
+
+                <div className="voiceMessages">
+                  {voiceMessages.length ? (
+                    voiceMessages.map((message, index) => (
+                      <article className={`voiceMessage ${message.role}`} key={index}>
+                        <span>{message.role === "user" ? "You" : "ENESKO"}</span>
+                        <p>{message.text}</p>
+                      </article>
+                    ))
+                  ) : (
+                    <div className="emptyState voiceEmpty">
+                      <strong>Ready when you are.</strong>
+                      <p>Tap Speak or type a request below. This is not a WhatsApp clone; it is ENESKO's own mall-concierge interface.</p>
+                    </div>
+                  )}
+                </div>
+
+                <form
+                  className="voiceComposer"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    void sendVoiceTurn(voiceInput);
+                  }}
+                >
+                  <input
+                    value={voiceInput}
+                    onChange={(event) => setVoiceInput(event.target.value)}
+                    placeholder="Type if you prefer not to speak..."
+                    aria-label="Voice concierge text fallback"
+                  />
+                  <button type="submit" disabled={voiceState === "thinking" || !voiceInput.trim()}>
+                    Send
+                  </button>
+                </form>
+              </div>
+            </div>
+          </section>
         )}
 
         {section === "stores" && (
