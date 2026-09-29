@@ -62,9 +62,35 @@ def require_roles(*roles:Role):
         return user
     return dependency
 def seed_security(db:Session):
-    if not db.scalar(select(User).where(User.email=="admin@enesko.local")):
-        db.add(User(email="admin@enesko.local",full_name="ENESKO Demo Administrator",password_hash=hash_password(settings.demo_admin_password),role=Role.PLATFORM_SUPER_ADMIN.value));db.commit()
+    admin=db.scalar(select(User).where(User.email=="admin@enesko.local"))
+    if not admin:
+        db.add(User(
+            email="admin@enesko.local",
+            full_name="ENESKO Local Administrator",
+            password_hash=hash_password(settings.demo_admin_password),
+            role=Role.PLATFORM_SUPER_ADMIN.value,
+        ))
+        db.commit()
+    elif admin.full_name=="ENESKO Demo Administrator":
+        admin.full_name="ENESKO Local Administrator"
+        db.commit()
+
     from app.phase5 import Tenant
-    tenant=db.scalar(select(Tenant).where(Tenant.name=="Demo Sports Tenant"))
-    if tenant and not db.scalar(select(User).where(User.email=="tenant@enesko.local")):
-        db.add(User(email="tenant@enesko.local",full_name="Demo Tenant Administrator",password_hash=hash_password(settings.demo_tenant_password),role=Role.TENANT_ADMINISTRATOR.value,tenant_id=tenant.id));db.commit()
+
+    tenant_user=db.scalar(select(User).where(User.email=="tenant@enesko.local"))
+
+    if settings.app_env=="test":
+        tenant=db.scalar(select(Tenant).where(Tenant.name=="Test Tenant"))
+        if tenant and not tenant_user:
+            db.add(User(
+                email="tenant@enesko.local",
+                full_name="Test Tenant Administrator",
+                password_hash=hash_password(settings.demo_tenant_password),
+                role=Role.TENANT_ADMINISTRATOR.value,
+                tenant_id=tenant.id,
+            ))
+            db.commit()
+    elif tenant_user and tenant_user.full_name=="Demo Tenant Administrator":
+        db.delete(tenant_user)
+        db.commit()
+
