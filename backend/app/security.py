@@ -62,35 +62,50 @@ def require_roles(*roles:Role):
         return user
     return dependency
 def seed_security(db:Session):
+    if settings.app_env not in {"development", "test"}:
+        return
+
     admin=db.scalar(select(User).where(User.email=="admin@enesko.local"))
     if not admin:
-        db.add(User(
+        admin=User(
             email="admin@enesko.local",
             full_name="ENESKO Local Administrator",
-            password_hash=hash_password(settings.demo_admin_password),
+            password_hash=hash_password(settings.local_admin_password),
             role=Role.PLATFORM_SUPER_ADMIN.value,
-        ))
-        db.commit()
-    elif admin.full_name=="ENESKO Demo Administrator":
+        )
+        db.add(admin)
+    else:
         admin.full_name="ENESKO Local Administrator"
-        db.commit()
+        admin.password_hash=hash_password(settings.local_admin_password)
+        admin.role=Role.PLATFORM_SUPER_ADMIN.value
+        admin.active=True
+    db.commit()
 
     from app.phase5 import Tenant
 
+    tenant_name="Test Tenant" if settings.app_env=="test" else "ENESKO Reference Tenant"
+    tenant=db.scalar(select(Tenant).where(Tenant.name==tenant_name))
     tenant_user=db.scalar(select(User).where(User.email=="tenant@enesko.local"))
 
-    if settings.app_env=="test":
-        tenant=db.scalar(select(Tenant).where(Tenant.name=="Test Tenant"))
-        if tenant and not tenant_user:
-            db.add(User(
+    if tenant:
+        if not tenant_user:
+            tenant_user=User(
                 email="tenant@enesko.local",
-                full_name="Test Tenant Administrator",
-                password_hash=hash_password(settings.demo_tenant_password),
+                full_name="Test Tenant Administrator" if settings.app_env=="test" else "ENESKO Reference Tenant Administrator",
+                password_hash=hash_password(settings.local_tenant_password),
                 role=Role.TENANT_ADMINISTRATOR.value,
                 tenant_id=tenant.id,
-            ))
-            db.commit()
-    elif tenant_user and tenant_user.full_name=="Demo Tenant Administrator":
-        db.delete(tenant_user)
+            )
+            db.add(tenant_user)
+        else:
+            tenant_user.full_name=(
+                "Test Tenant Administrator"
+                if settings.app_env=="test"
+                else "ENESKO Reference Tenant Administrator"
+            )
+            tenant_user.password_hash=hash_password(settings.local_tenant_password)
+            tenant_user.role=Role.TENANT_ADMINISTRATOR.value
+            tenant_user.tenant_id=tenant.id
+            tenant_user.active=True
         db.commit()
 
