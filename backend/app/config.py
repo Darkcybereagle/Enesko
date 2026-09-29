@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     whatsapp_phone_number_id:str=""
     whatsapp_access_token:str=""
     whatsapp_verify_token:str="CHANGE_ME_WHATSAPP_VERIFY_TOKEN"
+    whatsapp_app_secret:str=""
 
     smtp_host:str=""
     smtp_port:int=587
