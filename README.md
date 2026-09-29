@@ -1,6 +1,6 @@
 # ENESKO
 
-ENESKO is an intelligent mall operations platform. Category 1 implements the functional mall-operation domains and APIs (Phases 1–13). Category 2 adds production-oriented platform engineering and the prototype-facing product interfaces.
+ENESKO is an intelligent mall operations platform. Category 1 implements the mall-operation domains and APIs (Phases 1–13). Category 2 adds production-oriented platform engineering and the customer, staff and tenant product interfaces.
 
 ## Category 2 applications
 
@@ -11,7 +11,7 @@ ENESKO is an intelligent mall operations platform. Category 1 implements the fun
 - Authentication — JWT + Argon2
 - Authorization — ENESKO RBAC roles
 - Audit — mutation metadata audit trail
-- Database lifecycle — Alembic baseline, SQLite for local demo and PostgreSQL-ready configuration
+- Database lifecycle — Alembic migrations, SQLite for local development and PostgreSQL-ready configuration
 
 ## Local setup
 
@@ -22,7 +22,7 @@ git pull origin main
 .\venv\Scripts\Activate.ps1
 python -m pip install -r backend\requirements.txt
 cd backend
-alembic upgrade head
+python -m alembic upgrade head
 python -m app.seed
 pytest -q
 ```
@@ -48,11 +48,11 @@ npm run dev:admin
 npm run dev:tenant
 ```
 
-Demo staff login: `admin@enesko.local` / `EneskoDemo2026!`
+Local staff login: `admin@enesko.local` / `EneskoLocal2026!`
 
-Demo tenant login: `tenant@enesko.local` / `TenantDemo2026!`
+Local tenant login: `tenant@enesko.local` / `TenantLocal2026!`
 
-These credentials and the default JWT secret are development-only. Change them before production.
+These accounts exist only for local development and automated testing. The tenant account is attached to an ENESKO reference workspace, not to an asserted real ICM tenant relationship. Production identities must come from authorized mall onboarding and must use production secrets.
 
 ## Verification
 
@@ -66,4 +66,10 @@ Health: http://127.0.0.1:8000/health
 
 ## Data policy
 
-Seeded mall, cinema, parking, tenant and integration information is demo data unless explicitly verified. ENESKO must not present demo or unconfigured external integrations as live operational truth.
+ENESKO must distinguish public-reference information, staff-verified operational data, authorized integration data, reference models and test fixtures.
+
+- Public directory facts may be seeded only when their source and verification metadata are retained.
+- Live operational claims must come from fresh staff updates or authorized integrations.
+- Reference workspaces and route models must never be presented as authorized live mall data.
+- Test fixtures are isolated to `APP_ENV=test`.
+- Unavailable live data must be described as unavailable rather than guessed.
