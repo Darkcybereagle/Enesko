@@ -36,7 +36,7 @@ class Floor(Base):
 class Zone(Base):
     __tablename__ = "zones"
     id: Mapped[int] = mapped_column(primary_key=True)
-    floor_id: Mapped[int | None] = mapped_column(ForeignKey("floors.id", ondelete="SET NULL"), nullable=True, index=True)
+    floor_id: Mapped[int] = mapped_column(ForeignKey("floors.id", ondelete="CASCADE"), index=True)
     code: Mapped[str] = mapped_column(String(60), unique=True, index=True)
     name: Mapped[str] = mapped_column(String(160))
     floor: Mapped["Floor"] = relationship(back_populates="zones")
@@ -53,14 +53,19 @@ class Store(Base):
     __tablename__ = "stores"
     id: Mapped[int] = mapped_column(primary_key=True)
     mall_id: Mapped[int] = mapped_column(ForeignKey("malls.id", ondelete="CASCADE"), index=True)
-    floor_id: Mapped[int] = mapped_column(ForeignKey("floors.id", ondelete="CASCADE"), index=True)
+    floor_id: Mapped[int | None] = mapped_column(ForeignKey("floors.id", ondelete="SET NULL"), nullable=True, index=True)
     zone_id: Mapped[int | None] = mapped_column(ForeignKey("zones.id", ondelete="SET NULL"), nullable=True)
     name: Mapped[str] = mapped_column(String(200), index=True)
     unit: Mapped[str | None] = mapped_column(String(80), nullable=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     nearest_landmark: Mapped[str | None] = mapped_column(String(200), nullable=True)
     opening_hours: Mapped[str | None] = mapped_column(String(200), nullable=True)
-    data_status: Mapped[str] = mapped_column(String(30), default="DEMO")
+    data_status: Mapped[str] = mapped_column(String(30), default="UNVERIFIED")
+    source_name: Mapped[str | None] = mapped_column(String(240), nullable=True)
+    source_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    verified_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    map_node_code: Mapped[str | None] = mapped_column(String(80), nullable=True, index=True)
     active: Mapped[bool] = mapped_column(Boolean, default=True)
     categories: Mapped[list["Category"]] = relationship(secondary=store_categories, back_populates="stores")
 
@@ -75,7 +80,7 @@ class Facility(Base):
     name: Mapped[str] = mapped_column(String(200))
     facility_type: Mapped[str] = mapped_column(String(100), index=True)
     status: Mapped[str] = mapped_column(String(50), default="ACTIVE")
-    data_status: Mapped[str] = mapped_column(String(30), default="DEMO")
+    data_status: Mapped[str] = mapped_column(String(30), default="UNVERIFIED")
 
 
 class KnowledgeDocument(Base):
