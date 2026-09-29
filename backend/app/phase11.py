@@ -26,13 +26,21 @@ class ParkingSyncResult(BaseModel):
 
 
 @router.get("/parking/integration-status")
-def status():
+def status(db: Session = Depends(get_db)):
+    now = datetime.utcnow()
+    live_row = db.scalar(
+        select(ParkingStatus).where(
+            ParkingStatus.data_status == "INTEGRATION_VERIFIED",
+            ParkingStatus.expires_at.is_not(None),
+            ParkingStatus.expires_at >= now,
+        )
+    )
     return {
         "adapter": "ParkingAdapter",
         "configured": parking_adapter.configured,
-        "health": "READY" if parking_adapter.configured else "NOT_CONFIGURED",
+        "health": "CONFIGURED" if parking_adapter.configured else "NOT_CONFIGURED",
         "fallback": "staff_updated_phase10",
-        "live_counts_available": parking_adapter.configured,
+        "live_counts_available": live_row is not None,
     }
 
 
