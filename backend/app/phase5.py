@@ -5,6 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import Boolean, DateTime, ForeignKey, String, Text, func, select
 from sqlalchemy.orm import Mapped, Session, mapped_column
 
+from app.config import settings
 from app.database import Base, get_db
 from app.phase3 import Case, CaseCreate, CaseOut, create_case_record
 from app.security import Role, User, get_current_user
@@ -19,7 +20,7 @@ class Tenant(Base):
     primary_contact_name: Mapped[str] = mapped_column(String(160))
     primary_contact: Mapped[str] = mapped_column(String(200))
     active: Mapped[bool] = mapped_column(Boolean, default=True)
-    data_status: Mapped[str] = mapped_column(String(30), default="DEMO")
+    data_status: Mapped[str] = mapped_column(String(30), default="UNVERIFIED")
 
 
 class TenantRequest(Base):
@@ -38,7 +39,7 @@ class TenantAnnouncement(Base):
     title: Mapped[str] = mapped_column(String(240))
     message: Mapped[str] = mapped_column(Text)
     active: Mapped[bool] = mapped_column(Boolean, default=True)
-    data_status: Mapped[str] = mapped_column(String(30), default="DEMO")
+    data_status: Mapped[str] = mapped_column(String(30), default="UNVERIFIED")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
@@ -49,7 +50,7 @@ class TenantDocument(Base):
     title: Mapped[str] = mapped_column(String(240))
     document_type: Mapped[str] = mapped_column(String(80))
     reference: Mapped[str] = mapped_column(String(300))
-    data_status: Mapped[str] = mapped_column(String(30), default="DEMO")
+    data_status: Mapped[str] = mapped_column(String(30), default="UNVERIFIED")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
@@ -113,31 +114,76 @@ class TenantRequestOut(BaseModel):
 
 def seed_phase5(db: Session) -> None:
     from app.models import Mall
+
     mall = db.scalar(select(Mall).where(Mall.name == "Ikeja City Mall"))
     if not mall:
         return
-    tenant = db.scalar(select(Tenant).where(Tenant.name == "Demo Sports Tenant"))
+
+    legacy = db.scalar(select(Tenant).where(Tenant.name == "Demo Sports Tenant"))
+    if legacy:
+        for row in list(db.scalars(select(TenantRequest).where(TenantRequest.tenant_id == legacy.id)).all()):
+            db.delete(row)
+        for row in list(db.scalars(select(TenantDocument).where(TenantDocument.tenant_id == legacy.id)).all()):
+            db.delete(row)
+        db.delete(legacy)
+
+    for row in list(
+        db.scalars(
+            select(TenantAnnouncement).where(
+                TenantAnnouncement.title == "Demo Tenant Operations Notice"
+            )
+        ).all()
+    ):
+        db.delete(row)
+
+    db.commit()
+
+    if settings.app_env != "test":
+        return
+
+    tenant = db.scalar(select(Tenant).where(Tenant.name == "Test Tenant"))
     if not tenant:
         tenant = Tenant(
-            mall_id=mall.id, name="Demo Sports Tenant", unit="DEMO-G12",
-            primary_contact_name="Demo Tenant Manager",
-            primary_contact="demo-tenant@example.invalid", data_status="DEMO",
+            mall_id=mall.id,
+            name="Test Tenant",
+            unit="TEST-G12",
+            primary_contact_name="Test Tenant Manager",
+            primary_contact="tenant-test@example.invalid",
+            data_status="TEST",
         )
         db.add(tenant)
         db.flush()
-    if not db.scalar(select(TenantAnnouncement).where(TenantAnnouncement.title == "Demo Tenant Operations Notice")):
-        db.add(TenantAnnouncement(
-            mall_id=mall.id, title="Demo Tenant Operations Notice",
-            message="Development-only tenant announcement. Replace with authorized mall communication.",
-            data_status="DEMO",
-        ))
-    if not db.scalar(select(TenantDocument).where(
-        TenantDocument.tenant_id == tenant.id, TenantDocument.title == "Demo Tenant Guide"
-    )):
-        db.add(TenantDocument(
-            tenant_id=tenant.id, title="Demo Tenant Guide", document_type="GUIDE",
-            reference="DEMO — no production document attached", data_status="DEMO",
-        ))
+
+    if not db.scalar(
+        select(TenantAnnouncement).where(
+            TenantAnnouncement.title == "Test Tenant Operations Notice"
+        )
+    ):
+        db.add(
+            TenantAnnouncement(
+                mall_id=mall.id,
+                title="Test Tenant Operations Notice",
+                message="Automated test fixture for tenant communications.",
+                data_status="TEST",
+            )
+        )
+
+    if not db.scalar(
+        select(TenantDocument).where(
+            TenantDocument.tenant_id == tenant.id,
+            TenantDocument.title == "Test Tenant Guide",
+        )
+    ):
+        db.add(
+            TenantDocument(
+                tenant_id=tenant.id,
+                title="Test Tenant Guide",
+                document_type="GUIDE",
+                reference="TEST-FIXTURE",
+                data_status="TEST",
+            )
+        )
+
     db.commit()
 
 
