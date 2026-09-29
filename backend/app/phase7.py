@@ -108,9 +108,39 @@ def _process_inbound(db: Session, *, channel: str, sender: str, body: str) -> di
         )
     )
     db.commit()
+
+    if channel == "WHATSAPP":
+        delivery = whatsapp_adapter.send_text(sender, result["answer"])
+        outbound = _record_message(
+            db,
+            channel="WHATSAPP",
+            direction="OUTBOUND",
+            recipient=sender,
+            body=result["answer"],
+            status=delivery.status,
+            provider=delivery.provider,
+        )
+    else:
+        delivery = email_adapter.send(
+            sender,
+            "ENESKO response",
+            result["answer"],
+        )
+        outbound = _record_message(
+            db,
+            channel="EMAIL",
+            direction="OUTBOUND",
+            recipient=sender,
+            subject="ENESKO response",
+            body=result["answer"],
+            status=delivery.status,
+            provider=delivery.provider,
+        )
+
     return {
         "message": MessageOut.model_validate(inbound).model_dump(mode="json"),
         "assistant": result,
+        "reply": MessageOut.model_validate(outbound).model_dump(mode="json"),
     }
 
 
