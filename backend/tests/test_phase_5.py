@@ -21,4 +21,12 @@ def test_tenant_announcements_documents_and_metrics(client,tenant_headers):
     metrics=client.get(f"/api/v1/tenants/{tenant['id']}/metrics",headers=tenant_headers)
     assert announcements.status_code==200 and announcements.json()
     assert documents.status_code==200 and documents.json()
-    assert metrics.status_code==200 and metrics.json()["tenant_id"]==tenant["id"]
+    assert metrics.status_code==200
+    body=metrics.json()
+    assert body["tenant_id"]==tenant["id"]
+    assert body["total_requests"]==0
+    assert body["received_requests"]==0
+    assert body["in_progress_requests"]==0
+    assert body["resolved_requests"]==0
+    assert body["closed_requests"]==0
+    assert body["open_requests"]==0
