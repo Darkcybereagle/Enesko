@@ -11,6 +11,7 @@ STOP_WORDS = {
     "where", "what", "which", "with", "from", "that", "this", "there",
     "about", "could", "would", "please", "mall", "find", "store", "shop",
     "want", "need", "have", "does", "your", "their", "right", "now", "can", "buy",
+    "take", "navigate", "navigation", "direction", "directions", "get",
 }
 
 SEARCH_SYNONYMS = {
@@ -118,6 +119,8 @@ def classify_intent(message: str) -> str:
         return "cinema"
     if any(term in text for term in ("parking", "park my car", "parking space")):
         return "parking"
+    if any(term in text for term in ("take me to", "navigate to", "directions to", "how do i get to", "guide me to")):
+        return "navigation"
     if any(term in text for term in ("where is", "where can i", "find", "buy", "store", "shop", "restaurant")):
         return "store_search"
     return "knowledge_query"
@@ -254,6 +257,59 @@ def orchestrate(db: Session, message: str) -> dict:
             "data": {
                 "published_capacity": "700+ bays",
                 "live_status": "UNAVAILABLE",
+            },
+        }
+
+    if intent == "navigation":
+        stores = search_stores(db, message)
+        mapped = next((store for store in stores if store.map_node_code), None)
+        if mapped:
+            from app.phase4 import calculate_route
+
+            route = calculate_route(
+                db,
+                "ICM-ENTRANCE-2",
+                mapped.map_node_code,
+                accessible_only=True,
+            )
+            spoken_steps = " ".join(step["instruction"] for step in route["steps"])
+            return {
+                "answer": (
+                    f"I found {mapped.name}. Starting from Entrance 2: {spoken_steps} "
+                    "The current path is an ENESKO reference route until the authorized mall floor plan is connected."
+                ),
+                "intent": intent,
+                "needs_human": False,
+                "sources": [],
+                "data": {
+                    "store": {
+                        "id": mapped.id,
+                        "name": mapped.name,
+                        "map_node_code": mapped.map_node_code,
+                        "data_status": mapped.data_status,
+                    },
+                    "route": route,
+                },
+            }
+
+        return {
+            "answer": (
+                "I found matching store information, but that destination does not yet have an ENESKO indoor-map node. "
+                "I will not invent a route."
+            ),
+            "intent": intent,
+            "needs_human": False,
+            "sources": [],
+            "data": {
+                "stores": [
+                    {
+                        "id": store.id,
+                        "name": store.name,
+                        "map_node_code": store.map_node_code,
+                        "data_status": store.data_status,
+                    }
+                    for store in stores
+                ]
             },
         }
 
