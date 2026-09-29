@@ -149,11 +149,57 @@ def orchestrate(db: Session, message: str) -> dict:
         }
 
     if intent == "cinema":
+        from app.phase9 import CinemaShow
+
+        now = datetime.utcnow()
+        shows = list(
+            db.scalars(
+                select(CinemaShow)
+                .where(or_(CinemaShow.expires_at.is_(None), CinemaShow.expires_at >= now))
+                .order_by(CinemaShow.id)
+                .limit(8)
+            ).all()
+        )
+
+        if shows:
+            summary = "; ".join(f"{show.movie_title}: {show.show_time}" for show in shows[:4])
+            return {
+                "answer": (
+                    "Here are the current cinema records available to ENESKO: "
+                    f"{summary}. Use the official booking service to confirm seats and final availability."
+                ),
+                "intent": intent,
+                "needs_human": False,
+                "sources": [
+                    {
+                        "title": show.movie_title,
+                        "source_name": show.source,
+                        "updated_at": show.verified_at or now,
+                        "expires_at": show.expires_at,
+                    }
+                    for show in shows[:4]
+                ],
+                "data": {
+                    "cinema_name": "Silverbird Cinemas, Ikeja City Mall",
+                    "movie_enquiry": "+234 902 606 7603",
+                    "official_booking_url": "https://silverbirdcinemas.com/cinema/ikeja/",
+                    "shows": [
+                        {
+                            "movie_title": show.movie_title,
+                            "show_time": show.show_time,
+                            "data_status": show.data_status,
+                            "source": show.source,
+                        }
+                        for show in shows
+                    ],
+                },
+            }
+
         return {
             "answer": (
-                "Silverbird Cinemas operates at Ikeja City Mall. Published box-office hours are "
-                "10:00 AM to 10:00 PM daily. Current showtimes change frequently, so ENESKO will not "
-                "invent them until the official cinema feed is connected."
+                "Silverbird Cinemas operates at Ikeja City Mall, but ENESKO has no fresh showtime "
+                "record at the moment. I will not invent a schedule. Use the official booking service "
+                "for current listings."
             ),
             "intent": intent,
             "needs_human": False,
@@ -162,7 +208,7 @@ def orchestrate(db: Session, message: str) -> dict:
                 "cinema_name": "Silverbird Cinemas, Ikeja City Mall",
                 "movie_enquiry": "+234 902 606 7603",
                 "official_booking_url": "https://silverbirdcinemas.com/cinema/ikeja/",
-                "live_showtimes_connected": False,
+                "shows": [],
             },
         }
 
