@@ -91,8 +91,11 @@ class TenantDocumentOut(BaseModel):
 class TenantMetricsOut(BaseModel):
     tenant_id: int
     total_requests: int
-    open_requests: int
+    received_requests: int
+    in_progress_requests: int
     resolved_requests: int
+    closed_requests: int
+    open_requests: int
 
 
 class TenantRequestCreate(BaseModel):
@@ -299,11 +302,31 @@ def tenant_documents(tenant_id: int, db: Session = Depends(get_db), user: User =
 @router.get("/tenants/{tenant_id}/metrics", response_model=TenantMetricsOut)
 def tenant_metrics(tenant_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     _authorize_tenant(user,tenant_id);_tenant_or_404(db,tenant_id)
-    total = db.scalar(select(func.count()).select_from(TenantRequest).where(TenantRequest.tenant_id == tenant_id)) or 0
-    resolved = db.scalar(
-        select(func.count()).select_from(TenantRequest).join(Case, Case.id == TenantRequest.case_id).where(
-            TenantRequest.tenant_id == tenant_id, Case.status.in_(["RESOLVED", "CLOSED"])
-        )
+
+    def status_count(status: str) -> int:
+        return db.scalar(
+            select(func.count())
+            .select_from(TenantRequest)
+            .join(Case, Case.id == TenantRequest.case_id)
+            .where(TenantRequest.tenant_id == tenant_id, Case.status == status)
+        ) or 0
+
+    total = db.scalar(
+        select(func.count())
+        .select_from(TenantRequest)
+        .where(TenantRequest.tenant_id == tenant_id)
     ) or 0
-    return {"tenant_id": tenant_id, "total_requests": total, "open_requests": total - resolved,
-            "resolved_requests": resolved}
+    received = status_count("OPEN")
+    in_progress = status_count("IN_PROGRESS")
+    resolved = status_count("RESOLVED")
+    closed = status_count("CLOSED")
+
+    return {
+        "tenant_id": tenant_id,
+        "total_requests": total,
+        "received_requests": received,
+        "in_progress_requests": in_progress,
+        "resolved_requests": resolved,
+        "closed_requests": closed,
+        "open_requests": received + in_progress,
+    }
