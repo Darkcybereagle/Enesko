@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useState } from "react";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "/backend";
 const LOCAL_EMAIL = "admin@enesko.local";
-const LOCAL_PASSWORD = "EneskoDemo2026!";
+const LOCAL_PASSWORD = "EneskoLocal2026!";
 
 type View = "overview" | "cases" | "tenant-requests" | "activations" | "audit" | "parking";
 
