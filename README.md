@@ -1,12 +1,12 @@
 # ENESKO
 
-ENESKO is an intelligent mall operations platform. Category 1 implements the mall-operation domains and APIs (Phases 1–13). Category 2 adds production-oriented platform engineering and the customer, staff and tenant product interfaces.
+ENESKO is an intelligent mall operations platform. Category 1 implements the mall-operation domains and APIs (Phases 1–13). Category 2 adds production-oriented platform engineering and the customer, staff and tenant product interfaces. Category 2 implementation is complete and is frozen after the local release gate passes.
 
 ## Category 2 applications
 
 - Customer Web — Next.js, port 3000
 - Admin Operations Dashboard — Next.js, port 3001
-- Tenant Portal — Next.js, port 3002
+- Tenant Portal — Next.js, port 3002, with near-live request lifecycle monitoring
 - FastAPI backend — port 8000
 - Authentication — JWT + Argon2
 - Authorization — ENESKO RBAC roles
