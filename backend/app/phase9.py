@@ -7,6 +7,8 @@ from sqlalchemy.orm import Mapped, Session, mapped_column
 
 from app.config import settings
 from app.database import Base, get_db
+from app.integrations import cinema_adapter
+from app.security import Role, User, require_roles
 
 
 class CinemaShow(Base):
@@ -103,11 +105,100 @@ def integration_status():
         "primary": "official_api",
         "secondary": "authorized_sync_import",
         "fallback": "authorized_staff_admin",
-        "configured": False,
-        "live_data_available": False,
+        "configured": cinema_adapter.configured,
+        "live_data_available": cinema_adapter.configured,
         "cinema_name": "Silverbird Cinemas, Ikeja City Mall",
         "box_office_hours": "Mon-Sun 10:00-22:00",
         "movie_enquiry": "+234 902 606 7603",
         "official_booking_url": "https://silverbirdcinemas.com/cinema/ikeja/",
         "public_reference_verified_at": "2026-09-29",
+    }
+
+
+
+class CinemaSyncResult(BaseModel):
+    configured: bool
+    synced: int
+    provider: str
+    detail: str | None = None
+
+
+@router.post("/cinema/sync", response_model=CinemaSyncResult)
+def sync_cinema(
+    db: Session = Depends(get_db),
+    user: User = Depends(
+        require_roles(
+            Role.PLATFORM_SUPER_ADMIN,
+            Role.MALL_ADMINISTRATOR,
+        )
+    ),
+):
+    configured, payload, detail = cinema_adapter.fetch()
+    if not configured:
+        return {
+            "configured": False,
+            "synced": 0,
+            "provider": cinema_adapter.provider_name,
+            "detail": detail,
+        }
+    if payload is None:
+        return {
+            "configured": True,
+            "synced": 0,
+            "provider": cinema_adapter.provider_name,
+            "detail": detail or "Cinema feed could not be read.",
+        }
+
+    items = payload.get("shows", []) if isinstance(payload, dict) else payload
+    if not isinstance(items, list):
+        raise HTTPException(status_code=502, detail="Cinema feed must provide a list of shows")
+
+    now = datetime.utcnow()
+    synced = 0
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        title = str(item.get("movie_title") or item.get("title") or "").strip()
+        show_time = str(item.get("show_time") or item.get("time") or "").strip()
+        if not title or not show_time:
+            continue
+
+        cinema_name = str(item.get("cinema_name") or "Silverbird Cinemas, Ikeja City Mall")
+        row = db.scalar(
+            select(CinemaShow).where(
+                CinemaShow.cinema_name == cinema_name,
+                CinemaShow.movie_title == title,
+            )
+        )
+        if not row:
+            row = CinemaShow(
+                cinema_name=cinema_name,
+                movie_title=title,
+                show_time=show_time,
+            )
+            db.add(row)
+
+        row.show_time = show_time
+        row.booking_reference = item.get("booking_reference") or item.get("booking_url")
+        row.source = cinema_adapter.provider_name
+        row.data_status = "INTEGRATION_VERIFIED"
+        row.verified_at = now
+
+        expires_at = item.get("expires_at")
+        if isinstance(expires_at, str):
+            try:
+                parsed = datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
+                row.expires_at = parsed.replace(tzinfo=None)
+            except ValueError:
+                row.expires_at = None
+        else:
+            row.expires_at = None
+        synced += 1
+
+    db.commit()
+    return {
+        "configured": True,
+        "synced": synced,
+        "provider": cinema_adapter.provider_name,
+        "detail": None,
     }
