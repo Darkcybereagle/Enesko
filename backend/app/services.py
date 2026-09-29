@@ -13,6 +13,19 @@ STOP_WORDS = {
     "want", "need", "have", "does", "your", "their", "right", "now",
 }
 
+SEARCH_SYNONYMS = {
+    "shoe": {"footwear", "sneaker", "trainer"},
+    "shoes": {"footwear", "sneakers", "trainers"},
+    "sneaker": {"shoe", "footwear", "trainer"},
+    "sneakers": {"shoes", "footwear", "trainers"},
+    "trainer": {"shoe", "footwear", "sneaker"},
+    "trainers": {"shoes", "footwear", "sneakers"},
+    "phone": {"phones", "smartphone", "mobile"},
+    "phones": {"phone", "smartphones", "mobile"},
+    "clothes": {"clothing", "apparel", "fashion"},
+    "clothing": {"clothes", "apparel", "fashion"},
+}
+
 
 def _tokens(text: str, min_len: int = 3) -> list[str]:
     return [
@@ -36,18 +49,32 @@ def search_stores(db: Session, query: str) -> list[Store]:
     )
     tokens = _tokens(query)
 
+    expanded_terms: dict[str, set[str]] = {
+        token: {token, *SEARCH_SYNONYMS.get(token, set())}
+        for token in tokens
+    }
+
     def score(store: Store) -> int:
-        haystack = " ".join([
-            store.name or "",
-            store.description or "",
-            store.nearest_landmark or "",
-            " ".join(category.name for category in store.categories),
-        ]).lower()
-        return sum(
-            2 if token in (store.name or "").lower() else 1
-            for token in tokens
-            if token in haystack
-        )
+        name = (store.name or "").lower()
+        description = (store.description or "").lower()
+        landmark = (store.nearest_landmark or "").lower()
+        categories = " ".join(category.name for category in store.categories).lower()
+        haystack = " ".join([name, description, landmark, categories])
+
+        points = 0
+        for token, terms in expanded_terms.items():
+            direct_match = token in haystack
+            synonym_match = any(term in haystack for term in terms if term != token)
+
+            if token in name:
+                points += 4
+            elif direct_match:
+                points += 2
+
+            if synonym_match:
+                points += 2
+
+        return points
 
     ranked = sorted(
         ((score(store), store) for store in stores),
