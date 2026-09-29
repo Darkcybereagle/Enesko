@@ -22,11 +22,11 @@ from app.phase13 import router as analytics_router
 
 def create_app()->FastAPI:
     if settings.app_env != "production": Base.metadata.create_all(bind=engine)
-    app=FastAPI(title="Enesko",version="0.20.0",description="ENESKO Category 2 — secured platform and product interfaces")
+    app=FastAPI(title="Enesko",version="0.21.0",description="ENESKO Category 2 — implementation-complete secured product interfaces")
     app.add_middleware(CORSMiddleware,allow_origins=settings.cors_origin_list,allow_credentials=True,allow_methods=["*"],allow_headers=["*"])
     app.middleware("http")(audit_mutations)
     @app.get("/health",tags=["System"])
-    def health(): return {"status":"ok","service":"Enesko","category":2,"implemented_phases":list(range(1,14)),"platform":["migrations","auth","rbac","audit","customer-web","admin-dashboard","tenant-portal"]}
+    def health(): return {"status":"ok","service":"Enesko","category":2,"category2_status":"IMPLEMENTATION_COMPLETE","release_gate":"LOCAL_VERIFICATION_REQUIRED","implemented_phases":list(range(1,14)),"platform":["migrations","auth","rbac","audit","customer-web","admin-dashboard","tenant-portal","tenant-request-lifecycle"]}
     @app.get("/",include_in_schema=False)
     def test_page(): return FileResponse(Path(__file__).parent/"static"/"index.html")
     for router in (auth_router,platform_router,core_router,cases_router,navigation_router,tenant_router,activations_router,channels_router,voice_router,cinema_router,parking_router,parking_integration_router,smart_parking_router,analytics_router):
