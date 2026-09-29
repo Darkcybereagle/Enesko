@@ -13,10 +13,10 @@ class ParkingObservation(Base):
     occupied:Mapped[int|None]=mapped_column(Integer,nullable=True)
     available:Mapped[int|None]=mapped_column(Integer,nullable=True)
     confidence:Mapped[int|None]=mapped_column(Integer,nullable=True)
-    data_status:Mapped[str]=mapped_column(String(30),default="DEMO")
+    data_status:Mapped[str]=mapped_column(String(30),default="UNVERIFIED")
     observed_at:Mapped[datetime]=mapped_column(DateTime,default=datetime.utcnow)
 class ObservationCreate(BaseModel):
-    area_code:str;source_type:str;occupied:int|None=None;available:int|None=None;confidence:int|None=None;data_status:str="DEMO"
+    area_code:str;source_type:str;occupied:int|None=None;available:int|None=None;confidence:int|None=None;data_status:str="UNVERIFIED"
 class ObservationOut(ObservationCreate):
     id:int;observed_at:datetime
     model_config=ConfigDict(from_attributes=True)
