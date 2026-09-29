@@ -109,6 +109,7 @@ def test_email_inbound_requires_secret_and_routes_to_assistant(client,admin_head
     body=accepted.json()
     assert body["message"]["direction"]=="INBOUND"
     assert body["assistant"]["intent"]=="lost_found"
+    assert body["reply"]["status"]=="NOT_CONFIGURED"
 
     messages=client.get("/api/v1/channels/messages",headers=admin_headers)
     assert any(
@@ -170,3 +171,23 @@ def test_category3_integration_health_is_admin_protected(client,admin_headers):
     assert body["status"]=="ok"
     assert body["providers"]["voice_web"]=="READY"
     assert body["verified_knowledge_documents"]>=1
+
+
+def test_category3_spoken_navigation_invokes_existing_route_engine(client):
+    started=client.post(
+        "/api/v1/voice/sessions",
+        json={"provider":"BROWSER_SPEECH"},
+    )
+    ref=started.json()["session_ref"]
+
+    turn=client.post(
+        f"/api/v1/voice/sessions/{ref}/turn",
+        json={"text":"Take me to Samsung"},
+    )
+    assert turn.status_code==200
+    body=turn.json()
+    assert body["intent"]=="navigation"
+    assert body["data"]["store"]["name"]=="Samsung Experience Store"
+    assert body["data"]["route"]["from_node"]=="ICM-ENTRANCE-2"
+    assert body["data"]["route"]["to_node"]=="ICM-SAMSUNG"
+    assert body["data"]["route"]["steps"]
