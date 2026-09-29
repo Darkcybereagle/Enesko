@@ -32,8 +32,11 @@ type TenantRecord = {
 type TenantMetrics = {
   tenant_id: number;
   total_requests: number;
-  open_requests: number;
+  received_requests: number;
+  in_progress_requests: number;
   resolved_requests: number;
+  closed_requests: number;
+  open_requests: number;
 };
 
 type TenantRequest = {
@@ -52,6 +55,13 @@ type TenantRequest = {
     description: string;
     created_at: string;
     updated_at: string;
+    events: {
+      id: number;
+      event_type: string;
+      note: string;
+      actor: string;
+      created_at: string;
+    }[];
   };
 };
 
@@ -92,6 +102,7 @@ export default function TenantPortal() {
   const [notice, setNotice] = useState("");
   const [signingIn, setSigningIn] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [lastSynced, setLastSynced] = useState<Date | null>(null);
   const [credentialsLoaded, setCredentialsLoaded] = useState(false);
 
   useEffect(() => {
@@ -157,11 +168,36 @@ export default function TenantPortal() {
     setRequests(requestData);
     setAnnouncements(announcementData);
     setDocuments(documentData);
+    setLastSynced(new Date());
 
     if (announce) {
       setNotice("Tenant workspace refreshed.");
       window.setTimeout(() => setNotice(""), 2500);
     }
+  }
+
+  useEffect(() => {
+    if (!token || !profile?.user.tenant_id) return;
+
+    const interval = window.setInterval(() => {
+      loadWorkspace(token, profile.user.tenant_id as number).catch(() => {
+        // Keep the current workspace visible if a background sync misses once.
+      });
+    }, 8000);
+
+    return () => window.clearInterval(interval);
+  }, [token, profile?.user.tenant_id]);
+
+  function tenantStatusLabel(status: string) {
+    if (status === "OPEN") return "Received";
+    if (status === "IN_PROGRESS") return "In progress";
+    if (status === "RESOLVED") return "Resolved";
+    if (status === "CLOSED") return "Closed";
+    return status.replaceAll("_", " ");
+  }
+
+  function lifecycleIndex(status: string) {
+    return ["OPEN", "IN_PROGRESS", "RESOLVED", "CLOSED"].indexOf(status);
   }
 
   async function login(event: FormEvent<HTMLFormElement>) {
@@ -296,6 +332,7 @@ export default function TenantPortal() {
     setDescription("");
     setError("");
     setNotice("");
+    setLastSynced(null);
   }
 
   const statusLabel = tenant?.data_status === "REFERENCE_MODEL"
@@ -433,6 +470,11 @@ export default function TenantPortal() {
                   <span className="dataBadge">{statusLabel}</span>
                   {tenant?.unit && <span>{tenant.unit}</span>}
                   <span>{profile.user.full_name}</span>
+                  {lastSynced && (
+                    <span>
+                      Live sync · {lastSynced.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -448,21 +490,31 @@ export default function TenantPortal() {
             {notice && <p className="status notice">{notice}</p>}
             {error && <p className="danger notice">{error}</p>}
 
-            <section className="metricGrid">
+            <section className="metricGrid metricGridFive">
               <article className="metricCard">
-                <span>Total requests</span>
+                <span>Total</span>
                 <strong>{metrics?.total_requests ?? 0}</strong>
-                <small>All requests submitted from this tenant workspace.</small>
+                <small>All requests from this workspace.</small>
               </article>
               <article className="metricCard">
-                <span>Open</span>
-                <strong>{metrics?.open_requests ?? 0}</strong>
-                <small>Requests still requiring operational action.</small>
+                <span>Received</span>
+                <strong>{metrics?.received_requests ?? 0}</strong>
+                <small>Accepted into ENESKO Operations.</small>
+              </article>
+              <article className="metricCard">
+                <span>In progress</span>
+                <strong>{metrics?.in_progress_requests ?? 0}</strong>
+                <small>Currently being handled by operations.</small>
               </article>
               <article className="metricCard">
                 <span>Resolved</span>
                 <strong>{metrics?.resolved_requests ?? 0}</strong>
-                <small>Requests marked resolved or closed.</small>
+                <small>Operational work has been resolved.</small>
+              </article>
+              <article className="metricCard">
+                <span>Closed</span>
+                <strong>{metrics?.closed_requests ?? 0}</strong>
+                <small>Completed and formally closed.</small>
               </article>
             </section>
 
@@ -552,15 +604,61 @@ export default function TenantPortal() {
                         <div className="requestTopline">
                           <strong>{request.case.reference}</strong>
                           <span className={`statusBadge status-${request.case.status.toLowerCase()}`}>
-                            {request.case.status.replaceAll("_", " ")}
+                            {tenantStatusLabel(request.case.status)}
                           </span>
                         </div>
                         <h3>{request.case.summary}</h3>
                         <p>{request.case.description}</p>
+
+                        <div className="lifecycle" aria-label={`Request status: ${tenantStatusLabel(request.case.status)}`}>
+                          {[
+                            ["OPEN", "Received"],
+                            ["IN_PROGRESS", "In progress"],
+                            ["RESOLVED", "Resolved"],
+                            ["CLOSED", "Closed"],
+                          ].map(([status, label], index) => {
+                            const current = lifecycleIndex(request.case.status);
+                            const complete = current >= index;
+                            const active = current === index;
+                            return (
+                              <div
+                                className={`lifecycleStep ${complete ? "complete" : ""} ${active ? "active" : ""}`}
+                                key={status}
+                              >
+                                <span className="lifecycleDot">{complete ? "✓" : index + 1}</span>
+                                <strong>{label}</strong>
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                        <div className="requestTimeline">
+                          <span className="timelineLabel">Activity</span>
+                          {[...(request.case.events || [])]
+                            .sort(
+                              (a, b) =>
+                                new Date(a.created_at).getTime() -
+                                new Date(b.created_at).getTime()
+                            )
+                            .map((event) => (
+                              <div className="timelineItem" key={event.id}>
+                                <span className="timelineDot" />
+                                <div>
+                                  <strong>
+                                    {event.event_type === "CREATED"
+                                      ? "Request received"
+                                      : event.note}
+                                  </strong>
+                                  <small>{new Date(event.created_at).toLocaleString()}</small>
+                                </div>
+                              </div>
+                            ))}
+                        </div>
+
                         <div className="requestMeta">
                           <span>{request.request_type.replaceAll("_", " ")}</span>
                           <span>{request.case.priority}</span>
-                          <span>{new Date(request.created_at).toLocaleString()}</span>
+                          <span>Updated {new Date(request.case.updated_at).toLocaleString()}</span>
                         </div>
                       </article>
                     ))
