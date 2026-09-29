@@ -1,16 +1,17 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "/backend";
-const DEMO_EMAIL = "admin@enesko.local";
-const DEMO_PASSWORD = "EneskoDemo2026!";
+const LOCAL_EMAIL = "admin@enesko.local";
+const LOCAL_PASSWORD = "EneskoDemo2026!";
 
 type View = "overview" | "cases" | "tenant-requests" | "activations" | "audit" | "parking";
 
 export default function Admin() {
-  const [email, setEmail] = useState(DEMO_EMAIL);
-  const [password, setPassword] = useState(DEMO_PASSWORD);
+  const [theme, setTheme] = useState<"light" | "dark">("dark");
+  const [email, setEmail] = useState(LOCAL_EMAIL);
+  const [password, setPassword] = useState(LOCAL_PASSWORD);
   const [showPassword, setShowPassword] = useState(false);
   const [token, setToken] = useState("");
   const [data, setData] = useState<any>(null);
@@ -28,6 +29,22 @@ export default function Admin() {
   const [signingIn, setSigningIn] = useState(false);
   const [busy, setBusy] = useState(false);
   const [credentialsReset, setCredentialsReset] = useState(false);
+
+  useEffect(() => {
+    const saved = window.localStorage.getItem("enesko-ops-theme");
+    const next =
+      saved === "light" || saved === "dark"
+        ? saved
+        : window.matchMedia("(prefers-color-scheme: light)").matches
+          ? "light"
+          : "dark";
+    setTheme(next);
+  }, []);
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    window.localStorage.setItem("enesko-ops-theme", theme);
+  }, [theme]);
 
   function authHeaders(t = token) {
     return { Authorization: "Bearer " + t };
@@ -109,9 +126,9 @@ export default function Admin() {
     }
   }
 
-  function restoreDemoCredentials() {
-    setEmail(DEMO_EMAIL);
-    setPassword(DEMO_PASSWORD);
+  function loadLocalCredentials() {
+    setEmail(LOCAL_EMAIL);
+    setPassword(LOCAL_PASSWORD);
     setError("");
     setCredentialsReset(true);
   }
@@ -289,6 +306,14 @@ export default function Admin() {
               Sign out
             </button>
           )}
+          <button
+            className="themeToggle"
+            type="button"
+            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+            aria-label="Toggle light and dark mode"
+          >
+            {theme === "dark" ? "Light" : "Dark"}
+          </button>
           <span className="pill">Operations Control</span>
         </div>
       </nav>
@@ -298,7 +323,7 @@ export default function Admin() {
           <div className="panel card">
             <div className="eyebrow">Authorized staff</div>
             <h1>Operations sign in</h1>
-            <p className="muted">Development access for the ENESKO operations dashboard.</p>
+            <p className="muted">Secure staff access to ENESKO operations and live workflow controls.</p>
 
             <form onSubmit={login}>
               <label htmlFor="admin-email" className="muted">Email</label>
@@ -337,13 +362,13 @@ export default function Admin() {
                 <button className="button" type="submit" disabled={signingIn}>
                   {signingIn ? "Signing in..." : "Sign in securely"}
                 </button>
-                <button className="secondaryButton" type="button" onClick={restoreDemoCredentials}>
-                  Restore demo credentials
+                <button className="secondaryButton" type="button" onClick={loadLocalCredentials}>
+                  Load local credentials
                 </button>
               </div>
             </form>
 
-            {credentialsReset && <p className="status">Demo credentials restored.</p>}
+            {credentialsReset && <p className="status">Local credentials loaded.</p>}
             {error && <p className="danger">{error}</p>}
           </div>
         ) : (
