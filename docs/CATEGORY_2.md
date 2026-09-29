@@ -1,7 +1,7 @@
 # ENESKO Category 2 — Platform & Product Interfaces
 
-**Status:** IMPLEMENTATION COMPLETE  
-**Freeze condition:** local release gate passes on the target development machine.
+**Status:** COMPLETE & FROZEN  
+**Release gate:** passed on the local development workflow before Category 3 work.
 
 Category 2 preserves the tested Category 1 domain APIs and adds:
 
@@ -44,7 +44,7 @@ The tenant account is attached to an `ENESKO Reference Tenant` workspace only in
 
 ## Category 2 release gate
 
-Category 2 is frozen after all of the following pass:
+Category 2 was frozen after the following release gate:
 
 - all backend tests pass;
 - all three Next.js workspaces build;
@@ -55,4 +55,4 @@ Category 2 is frozen after all of the following pass:
 - tenant accounts remain tenant-scoped;
 - staff actions remain protected by RBAC and are recorded in the audit trail where applicable.
 
-After this gate passes, Category 2 receives only bug/security fixes. New product capabilities belong to Category 3 or a later approved roadmap category.
+Category 2 now receives only bug/security fixes. New product capabilities belong to Category 3 or a later approved roadmap category.
