@@ -685,15 +685,18 @@ export default function Admin() {
                   <p className="muted">Loading integration health…</p>
                 ) : integrationStatus ? (
                   <div className="grid">
-                    {Object.entries(integrationStatus).map(([name, value]: [string, any]) => (
-                      <div className="record" key={name}>
-                        <strong>{name.replaceAll("_", " ").toUpperCase()}</strong>
-                        <span>
-                          {value.configured ? "Configured" : name === "voice" ? "Ready" : "Not configured"}
-                        </span>
-                        <span className="muted">{value.provider}</span>
-                      </div>
-                    ))}
+                    {Object.entries(integrationStatus).map(([name, rawValue]) => {
+                      const value = rawValue as { configured?: boolean; provider?: string };
+                      return (
+                        <div className="record" key={name}>
+                          <strong>{name.replaceAll("_", " ").toUpperCase()}</strong>
+                          <span>
+                            {value.configured ? "Configured" : name === "voice" ? "Ready" : "Not configured"}
+                          </span>
+                          <span className="muted">{value.provider || "Unknown provider"}</span>
+                        </div>
+                      );
+                    })}
                   </div>
                 ) : (
                   <p className="muted">Integration status has not been loaded yet.</p>
