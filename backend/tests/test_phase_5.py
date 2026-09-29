@@ -1,16 +1,16 @@
 def test_tenant_directory(client,tenant_headers):
     response=client.get("/api/v1/tenants",headers=tenant_headers)
-    assert response.status_code==200 and any(t["name"]=="Demo Sports Tenant" for t in response.json())
+    assert response.status_code==200 and any(t["name"]=="Test Tenant" for t in response.json())
 
 def test_tenant_request_uses_unified_case_engine(client,tenant_headers):
     tenant=client.get("/api/v1/tenants",headers=tenant_headers).json()[0]
-    response=client.post(f"/api/v1/tenants/{tenant['id']}/requests",headers=tenant_headers,json={"request_type":"MAINTENANCE","summary":"Demo HVAC request","description":"Development-only tenant maintenance request.","priority":"NORMAL"})
+    response=client.post(f"/api/v1/tenants/{tenant['id']}/requests",headers=tenant_headers,json={"request_type":"MAINTENANCE","summary":"HVAC test request","description":"Automated tenant maintenance test request.","priority":"NORMAL"})
     assert response.status_code==201
     body=response.json();assert body["request_type"]=="MAINTENANCE" and body["case"]["case_type"]=="TENANT_MAINTENANCE"
 
 def test_tenant_requests_list(client,tenant_headers):
     tenant=client.get("/api/v1/tenants",headers=tenant_headers).json()[0]
-    client.post(f"/api/v1/tenants/{tenant['id']}/requests",headers=tenant_headers,json={"request_type":"MARKETING","summary":"Demo marketing request","description":"Development-only marketing support request."})
+    client.post(f"/api/v1/tenants/{tenant['id']}/requests",headers=tenant_headers,json={"request_type":"MARKETING","summary":"Marketing test request","description":"Automated marketing support test request."})
     response=client.get(f"/api/v1/tenants/{tenant['id']}/requests",headers=tenant_headers)
     assert response.status_code==200 and response.json()
 
