@@ -125,6 +125,10 @@ def seed_phase5(db: Session) -> None:
             db.delete(row)
         for row in list(db.scalars(select(TenantDocument).where(TenantDocument.tenant_id == legacy.id)).all()):
             db.delete(row)
+        for user in list(db.scalars(select(User).where(User.tenant_id == legacy.id)).all()):
+            if user.email == "tenant@enesko.local" or user.full_name.startswith("Demo "):
+                db.delete(user)
+        db.flush()
         db.delete(legacy)
 
     for row in list(
