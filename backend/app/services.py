@@ -10,7 +10,7 @@ from app.models import KnowledgeDocument, Store
 STOP_WORDS = {
     "where", "what", "which", "with", "from", "that", "this", "there",
     "about", "could", "would", "please", "mall", "find", "store", "shop",
-    "want", "need", "have", "does", "your", "their", "right", "now",
+    "want", "need", "have", "does", "your", "their", "right", "now", "can", "buy",
 }
 
 SEARCH_SYNONYMS = {
