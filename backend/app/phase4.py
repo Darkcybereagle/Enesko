@@ -19,7 +19,7 @@ class MapNode(Base):
     name: Mapped[str] = mapped_column(String(200))
     node_type: Mapped[str] = mapped_column(String(50), default="WAYPOINT")
     qr_code: Mapped[str | None] = mapped_column(String(160), unique=True, nullable=True)
-    data_status: Mapped[str] = mapped_column(String(30), default="DEMO")
+    data_status: Mapped[str] = mapped_column(String(30), default="REFERENCE_MODEL")
 
 
 class MapEdge(Base):
@@ -113,44 +113,115 @@ def calculate_route(db: Session, start_code: str, end_code: str, accessible_only
     cursor = end.id
     while cursor != start.id:
         parent, instruction, distance = previous[cursor]
-        reversed_steps.append({"from_node": by_id[parent].code, "to_node": by_id[cursor].code,
-                               "instruction": instruction, "distance_m": distance})
+        reversed_steps.append({
+            "from_node": by_id[parent].code,
+            "to_node": by_id[cursor].code,
+            "instruction": instruction,
+            "distance_m": distance,
+        })
         cursor = parent
+
     steps = list(reversed(reversed_steps))
     statuses = {by_id[start.id].data_status, by_id[end.id].data_status}
-    return {"from_node": start.code, "to_node": end.code, "total_distance_m": round(distances[end.id], 1),
-            "accessible_only": accessible_only, "steps": steps,
-            "data_status": "VERIFIED" if statuses == {"VERIFIED"} else "DEMO"}
+    if statuses == {"VERIFIED"}:
+        route_status = "VERIFIED"
+    elif "REFERENCE_MODEL" in statuses:
+        route_status = "REFERENCE_MODEL"
+    else:
+        route_status = "UNVERIFIED"
+
+    return {
+        "from_node": start.code,
+        "to_node": end.code,
+        "total_distance_m": round(distances[end.id], 1),
+        "accessible_only": accessible_only,
+        "steps": steps,
+        "data_status": route_status,
+    }
+
+
+def _node_by_any_code(db: Session, *codes: str) -> MapNode | None:
+    return db.scalar(select(MapNode).where(MapNode.code.in_(codes)).order_by(MapNode.id))
 
 
 def seed_phase4(db: Session) -> None:
-    if db.scalar(select(MapNode).where(MapNode.code == "DEMO-ENTRANCE-1")):
-        return
     from app.models import Floor, Mall, Zone
+
     mall = db.scalar(select(Mall).where(Mall.name == "Ikeja City Mall"))
     if not mall:
         return
+
     ground = db.scalar(select(Floor).where(Floor.mall_id == mall.id, Floor.level == 0))
-    zone_a = db.scalar(select(Zone).where(Zone.floor_id == ground.id).order_by(Zone.id)) if ground else None
-    entrance = MapNode(mall_id=mall.id, floor_id=ground.id if ground else None, zone_id=zone_a.id if zone_a else None,
-                       code="DEMO-ENTRANCE-1", name="Demo Entrance 1", node_type="ENTRANCE",
-                       qr_code="ENESKO-DEMO-ENTRANCE-1", data_status="DEMO")
-    junction = MapNode(mall_id=mall.id, floor_id=ground.id if ground else None, zone_id=zone_a.id if zone_a else None,
-                       code="DEMO-JUNCTION-A", name="Demo Junction A", node_type="WAYPOINT",
-                       qr_code="ENESKO-DEMO-JUNCTION-A", data_status="DEMO")
-    sports = MapNode(mall_id=mall.id, floor_id=ground.id if ground else None, zone_id=zone_a.id if zone_a else None,
-                     code="DEMO-SPORTS-STORE", name="Demo Sports Store", node_type="STORE",
-                     qr_code="ENESKO-DEMO-SPORTS-STORE", data_status="DEMO")
-    db.add_all([entrance, junction, sports])
+    zone = db.scalar(select(Zone).where(Zone.floor_id == ground.id).order_by(Zone.id)) if ground else None
+
+    entrance = _node_by_any_code(db, "ICM-ENTRANCE-2", "DEMO-ENTRANCE-1")
+    junction = _node_by_any_code(db, "ICM-CONCOURSE-A", "DEMO-JUNCTION-A")
+    samsung = _node_by_any_code(db, "ICM-SAMSUNG", "DEMO-SPORTS-STORE")
+
+    if not entrance:
+        entrance = MapNode(mall_id=mall.id)
+        db.add(entrance)
+    if not junction:
+        junction = MapNode(mall_id=mall.id)
+        db.add(junction)
+    if not samsung:
+        samsung = MapNode(mall_id=mall.id)
+        db.add(samsung)
+
+    entrance.floor_id = ground.id if ground else None
+    entrance.zone_id = zone.id if zone else None
+    entrance.code = "ICM-ENTRANCE-2"
+    entrance.name = "Entrance 2"
+    entrance.node_type = "ENTRANCE"
+    entrance.qr_code = "ENESKO-ICM-ENTRANCE-2"
+    entrance.data_status = "REFERENCE_MODEL"
+
+    junction.floor_id = ground.id if ground else None
+    junction.zone_id = zone.id if zone else None
+    junction.code = "ICM-CONCOURSE-A"
+    junction.name = "Main Concourse"
+    junction.node_type = "WAYPOINT"
+    junction.qr_code = "ENESKO-ICM-CONCOURSE-A"
+    junction.data_status = "REFERENCE_MODEL"
+
+    samsung.floor_id = ground.id if ground else None
+    samsung.zone_id = zone.id if zone else None
+    samsung.code = "ICM-SAMSUNG"
+    samsung.name = "Samsung Experience Store"
+    samsung.node_type = "STORE"
+    samsung.qr_code = "ENESKO-ICM-SAMSUNG"
+    samsung.data_status = "REFERENCE_MODEL"
+
     db.flush()
-    db.add_all([
-        MapEdge(from_node_id=entrance.id, to_node_id=junction.id, distance_m=25.0,
-                instruction="Proceed straight from Demo Entrance 1 to Demo Junction A.",
-                accessible=True, bidirectional=True),
-        MapEdge(from_node_id=junction.id, to_node_id=sports.id, distance_m=18.0,
-                instruction="Continue from Demo Junction A to Demo Sports Store.",
-                accessible=True, bidirectional=True),
-    ])
+
+    edge_one = db.scalar(
+        select(MapEdge).where(
+            MapEdge.from_node_id == entrance.id,
+            MapEdge.to_node_id == junction.id,
+        )
+    )
+    if not edge_one:
+        edge_one = MapEdge(from_node_id=entrance.id, to_node_id=junction.id)
+        db.add(edge_one)
+    edge_one.distance_m = 25.0
+    edge_one.instruction = "Proceed from Entrance 2 toward the main concourse."
+    edge_one.accessible = True
+    edge_one.bidirectional = True
+
+    edge_two = db.scalar(
+        select(MapEdge).where(
+            MapEdge.from_node_id == junction.id,
+            MapEdge.to_node_id == samsung.id,
+        )
+    )
+    if not edge_two:
+        edge_two = MapEdge(from_node_id=junction.id, to_node_id=samsung.id)
+        db.add(edge_two)
+    edge_two.distance_m = 18.0
+    edge_two.instruction = "Continue from the main concourse toward the Samsung Experience Store."
+    edge_two.accessible = True
+    edge_two.bidirectional = True
+
     db.commit()
 
 
