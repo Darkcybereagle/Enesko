@@ -20,7 +20,7 @@ class Activation(Base):
     proposed_date: Mapped[str]=mapped_column(String(40))
     status: Mapped[str]=mapped_column(String(40),default="SUBMITTED")
     current_stage: Mapped[str]=mapped_column(String(60),default="INTAKE")
-    data_status: Mapped[str]=mapped_column(String(30),default="DEMO")
+    data_status: Mapped[str]=mapped_column(String(30),default="SUBMITTED")
     created_at: Mapped[datetime]=mapped_column(DateTime,default=datetime.utcnow)
 
 class ActivationCreate(BaseModel):
@@ -36,12 +36,9 @@ class ActivationStageUpdate(BaseModel):
     status:str=Field(default="IN_REVIEW",min_length=2,max_length=40)
 
 def seed_phase6(db:Session):
-    if db.scalar(select(Activation).where(Activation.reference=="ENK-DEMO-ACT")): return
-    mall=db.scalar(select(Mall).where(Mall.name=="Ikeja City Mall"))
-    if mall:
-        db.add(Activation(reference="ENK-DEMO-ACT",mall_id=mall.id,applicant_name="Demo Applicant",
-          contact="demo@example.invalid",title="Demo Mall Activation",description="Development-only activation.",
-          proposed_date="DEMO",data_status="DEMO")); db.commit()
+    legacy=db.scalar(select(Activation).where(Activation.reference=="ENK-DEMO-ACT"))
+    if legacy:
+        db.delete(legacy);db.commit()
 
 router=APIRouter(prefix="/api/v1",tags=["Activations & Events"])
 
@@ -49,7 +46,7 @@ router=APIRouter(prefix="/api/v1",tags=["Activations & Events"])
 def create_activation(payload:ActivationCreate,db:Session=Depends(get_db)):
     mall=db.scalar(select(Mall).order_by(Mall.id))
     if not mall: raise HTTPException(409,"Mall must exist before activation intake")
-    row=Activation(reference=f"ENK-ACT-{uuid4().hex[:8].upper()}",mall_id=mall.id,**payload.model_dump(),data_status="DEMO")
+    row=Activation(reference=f"ENK-ACT-{uuid4().hex[:8].upper()}",mall_id=mall.id,**payload.model_dump(),data_status="SUBMITTED")
     db.add(row); db.commit(); db.refresh(row); return row
 
 @router.get("/activations",response_model=list[ActivationOut])
