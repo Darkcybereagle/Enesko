@@ -108,7 +108,10 @@ def _process_inbound(db: Session, *, channel: str, sender: str, body: str) -> di
         )
     )
     db.commit()
-    return {"message": inbound, "assistant": result}
+    return {
+        "message": MessageOut.model_validate(inbound).model_dump(mode="json"),
+        "assistant": result,
+    }
 
 
 router = APIRouter(prefix="/api/v1", tags=["WhatsApp & Email"])
