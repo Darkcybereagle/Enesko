@@ -6,7 +6,8 @@ def test_store_finder(client):
     assert response.status_code == 200
     body = response.json()
     assert body["intent"] == "store_search"
-    assert body["data"]["stores"][0]["name"] == "Demo Sports Store"
+    assert body["data"]["stores"][0]["name"] == "Adidas"
+    assert body["data"]["stores"][0]["data_status"] == "PUBLIC_VERIFIED"
 
 
 def test_live_parking_is_not_invented(client):
@@ -17,8 +18,10 @@ def test_live_parking_is_not_invented(client):
     body = response.json()
     assert response.status_code == 200
     assert body["intent"] == "parking"
-    assert body["needs_human"] is True
+    assert body["needs_human"] is False
     assert "will not guess" in body["answer"].lower()
+    assert body["data"]["published_capacity"] == "700+ bays"
+    assert body["data"]["live_status"] == "UNAVAILABLE"
 
 
 def test_lost_found_foundation(client):
