@@ -63,6 +63,9 @@ class CaseCreate(BaseModel):
     distinguishing_features: str | None = None
 
 
+CASE_STATUSES = {"OPEN", "IN_PROGRESS", "RESOLVED", "CLOSED"}
+
+
 class CaseStatusUpdate(BaseModel):
     status: str = Field(min_length=2, max_length=30)
     note: str = Field(min_length=2, max_length=2000)
@@ -168,7 +171,13 @@ def get_case(reference: str, db: Session = Depends(get_db)):
 @router.patch("/cases/{reference}/status", response_model=CaseOut)
 def update_case_status(reference: str, payload: CaseStatusUpdate, db: Session = Depends(get_db), user: User = Depends(require_roles(Role.PLATFORM_SUPER_ADMIN, Role.MALL_ADMINISTRATOR, Role.CUSTOMER_SERVICE, Role.SECURITY))):
     case = _case_or_404(db, reference)
-    case.status = payload.status.upper()
+    next_status = payload.status.upper()
+    if next_status not in CASE_STATUSES:
+        raise HTTPException(
+            status_code=422,
+            detail="Status must be one of OPEN, IN_PROGRESS, RESOLVED or CLOSED",
+        )
+    case.status = next_status
     case.updated_at = datetime.utcnow()
     db.add(CaseEvent(case_id=case.id, event_type="STATUS_CHANGED", note=payload.note, actor=payload.actor))
     db.commit()
