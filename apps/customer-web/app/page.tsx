@@ -306,7 +306,7 @@ export default function Home() {
         </button>
 
         <div className="topActions">
-          <span className="verifiedPill">Public directory + live operations</span>
+          <span className="verifiedPill">Official public sources + staff-verified operations</span>
           <button
             className="themeToggle"
             type="button"
