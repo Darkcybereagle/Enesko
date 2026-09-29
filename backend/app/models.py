@@ -36,7 +36,7 @@ class Floor(Base):
 class Zone(Base):
     __tablename__ = "zones"
     id: Mapped[int] = mapped_column(primary_key=True)
-    floor_id: Mapped[int] = mapped_column(ForeignKey("floors.id", ondelete="CASCADE"), index=True)
+    floor_id: Mapped[int | None] = mapped_column(ForeignKey("floors.id", ondelete="SET NULL"), nullable=True, index=True)
     code: Mapped[str] = mapped_column(String(60), unique=True, index=True)
     name: Mapped[str] = mapped_column(String(160))
     floor: Mapped["Floor"] = relationship(back_populates="zones")
