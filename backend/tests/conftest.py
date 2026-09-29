@@ -3,6 +3,7 @@ from pathlib import Path
 
 TEST_DB = Path("test_enesko.db")
 os.environ["DATABASE_URL"] = f"sqlite:///{TEST_DB}"
+os.environ["APP_ENV"] = "test"
 
 import pytest
 from fastapi.testclient import TestClient
