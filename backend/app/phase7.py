@@ -3,7 +3,7 @@ import hashlib
 import hmac
 import json
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, Response
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import DateTime, String, Text, select
 from sqlalchemy.orm import Mapped, Session, mapped_column
@@ -188,7 +188,7 @@ def verify_whatsapp_webhook(
     challenge: str | None = Query(default=None, alias="hub.challenge"),
 ):
     if mode == "subscribe" and verify_token == settings.whatsapp_verify_token and challenge:
-        return int(challenge) if challenge.isdigit() else challenge
+        return Response(content=challenge, media_type="text/plain")
     raise HTTPException(status_code=403, detail="WhatsApp webhook verification failed")
 
 
