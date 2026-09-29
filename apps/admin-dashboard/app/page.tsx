@@ -6,7 +6,7 @@ const API = process.env.NEXT_PUBLIC_API_URL || "/backend";
 const LOCAL_EMAIL = "admin@enesko.local";
 const LOCAL_PASSWORD = "EneskoLocal2026!";
 
-type View = "overview" | "cases" | "tenant-requests" | "activations" | "audit" | "parking";
+type View = "overview" | "cases" | "tenant-requests" | "activations" | "audit" | "parking" | "integrations";
 
 export default function Admin() {
   const [theme, setTheme] = useState<"light" | "dark">("dark");
@@ -20,6 +20,8 @@ export default function Admin() {
   const [parking, setParking] = useState<any[]>([]);
   const [tenantRequests, setTenantRequests] = useState<any[]>([]);
   const [audit, setAudit] = useState<any[]>([]);
+  const [integrationStatus, setIntegrationStatus] = useState<any>(null);
+  const [integrationHealth, setIntegrationHealth] = useState<any>(null);
   const [activeView, setActiveView] = useState<View>("overview");
   const [selectedCase, setSelectedCase] = useState<any>(null);
   const [selectedActivation, setSelectedActivation] = useState<any>(null);
@@ -151,6 +153,16 @@ export default function Admin() {
         setAudit(await readJson(response, "Audit log"));
       }
 
+      if (view === "integrations") {
+        setBusy(true);
+        const [statusResponse, healthResponse] = await Promise.all([
+          fetch(API + "/api/v1/integrations/status"),
+          fetch(API + "/api/v1/integrations/health", { headers: authHeaders() }),
+        ]);
+        setIntegrationStatus(await readJson(statusResponse, "Integration status"));
+        setIntegrationHealth(await readJson(healthResponse, "Integration health"));
+      }
+
       if (view === "tenant-requests") {
         setBusy(true);
         const tenantsResponse = await fetch(API + "/api/v1/tenants", { headers: authHeaders() });
@@ -277,6 +289,8 @@ export default function Admin() {
     setParking([]);
     setTenantRequests([]);
     setAudit([]);
+    setIntegrationStatus(null);
+    setIntegrationHealth(null);
     setSelectedCase(null);
     setSelectedActivation(null);
     setSelectedParking(null);
@@ -315,6 +329,11 @@ export default function Admin() {
           {token && (
             <button className="navButton" type="button" onClick={() => openView("parking")}>
               Parking
+            </button>
+          )}
+          {token && (
+            <button className="navButton" type="button" onClick={() => openView("integrations")}>
+              Integrations
             </button>
           )}
           {token && (
@@ -647,6 +666,47 @@ export default function Admin() {
                     <p className="muted">Select a parking area to post a verified staff status.</p>
                   )}
                 </div>
+              </div>
+            )}
+
+            {activeView === "integrations" && (
+              <div className="card">
+                <div className="sectionHeader">
+                  <div>
+                    <div className="eyebrow">Category 3</div>
+                    <h3>Integration health</h3>
+                  </div>
+                  <span className="pill">
+                    {integrationHealth?.status === "ok" ? "Platform healthy" : "Checking"}
+                  </span>
+                </div>
+
+                {busy ? (
+                  <p className="muted">Loading integration health…</p>
+                ) : integrationStatus ? (
+                  <div className="grid">
+                    {Object.entries(integrationStatus).map(([name, value]: [string, any]) => (
+                      <div className="record" key={name}>
+                        <strong>{name.replaceAll("_", " ").toUpperCase()}</strong>
+                        <span>
+                          {value.configured ? "Configured" : name === "voice" ? "Ready" : "Not configured"}
+                        </span>
+                        <span className="muted">{value.provider}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="muted">Integration status has not been loaded yet.</p>
+                )}
+
+                {integrationHealth && (
+                  <div className="record" style={{ marginTop: 18 }}>
+                    <strong>Operational records</strong>
+                    <span className="muted">
+                      {integrationHealth.conversations} conversations · {integrationHealth.channel_messages} channel messages · {integrationHealth.voice_sessions} voice sessions · {integrationHealth.verified_knowledge_documents} verified knowledge documents
+                    </span>
+                  </div>
+                )}
               </div>
             )}
 
