@@ -142,49 +142,78 @@ def seed_phase5(db: Session) -> None:
 
     db.commit()
 
-    if settings.app_env != "test":
+    if settings.app_env not in {"development", "test"}:
         return
 
-    tenant = db.scalar(select(Tenant).where(Tenant.name == "Test Tenant"))
+    is_test = settings.app_env == "test"
+    tenant_name = "Test Tenant" if is_test else "ENESKO Reference Tenant"
+    unit = "TEST-G12" if is_test else "REFERENCE-WORKSPACE"
+    contact_name = "Test Tenant Manager" if is_test else "Reference Tenant Manager"
+    contact = "tenant-test@example.invalid" if is_test else "tenant@enesko.local"
+    data_status = "TEST" if is_test else "REFERENCE_MODEL"
+    announcement_title = (
+        "Test Tenant Operations Notice"
+        if is_test
+        else "Tenant operations workspace onboarding"
+    )
+    announcement_message = (
+        "Automated test fixture for tenant communications."
+        if is_test
+        else "Reference workflow content for local development. Replace this with authorized mall communications before deployment."
+    )
+    document_title = "Test Tenant Guide" if is_test else "Tenant Operations Guide"
+    document_reference = "TEST-FIXTURE" if is_test else "REFERENCE-WORKFLOW"
+
+    tenant = db.scalar(select(Tenant).where(Tenant.name == tenant_name))
     if not tenant:
         tenant = Tenant(
             mall_id=mall.id,
-            name="Test Tenant",
-            unit="TEST-G12",
-            primary_contact_name="Test Tenant Manager",
-            primary_contact="tenant-test@example.invalid",
-            data_status="TEST",
+            name=tenant_name,
+            unit=unit,
+            primary_contact_name=contact_name,
+            primary_contact=contact,
+            data_status=data_status,
         )
         db.add(tenant)
         db.flush()
+    else:
+        tenant.mall_id = mall.id
+        tenant.unit = unit
+        tenant.primary_contact_name = contact_name
+        tenant.primary_contact = contact
+        tenant.data_status = data_status
+        tenant.active = True
 
-    if not db.scalar(
+    announcement = db.scalar(
         select(TenantAnnouncement).where(
-            TenantAnnouncement.title == "Test Tenant Operations Notice"
+            TenantAnnouncement.mall_id == mall.id,
+            TenantAnnouncement.title == announcement_title,
         )
-    ):
+    )
+    if not announcement:
         db.add(
             TenantAnnouncement(
                 mall_id=mall.id,
-                title="Test Tenant Operations Notice",
-                message="Automated test fixture for tenant communications.",
-                data_status="TEST",
+                title=announcement_title,
+                message=announcement_message,
+                data_status=data_status,
             )
         )
 
-    if not db.scalar(
+    document = db.scalar(
         select(TenantDocument).where(
             TenantDocument.tenant_id == tenant.id,
-            TenantDocument.title == "Test Tenant Guide",
+            TenantDocument.title == document_title,
         )
-    ):
+    )
+    if not document:
         db.add(
             TenantDocument(
                 tenant_id=tenant.id,
-                title="Test Tenant Guide",
+                title=document_title,
                 document_type="GUIDE",
-                reference="TEST-FIXTURE",
-                data_status="TEST",
+                reference=document_reference,
+                data_status=data_status,
             )
         )
 
