@@ -1,1 +1,14 @@
-import "./globals.css";export const metadata={title:"Tenant Portal | ENESKO",description:"ENESKO intelligent mall operations platform"};export default function RootLayout({children}:{children:React.ReactNode}){return <html lang="en"><body>{children}</body></html>}
+import "./globals.css";
+
+export const metadata = {
+  title: "ENESKO Tenant | Mall Operations Workspace",
+  description: "Tenant operations workspace for ENESKO intelligent mall operations.",
+};
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en">
+      <body>{children}</body>
+    </html>
+  );
+}
