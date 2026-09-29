@@ -1,5 +1,7 @@
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.database import get_db
@@ -41,9 +43,24 @@ def list_stores(
     category: str | None = Query(default=None),
     db: Session = Depends(get_db),
 ):
-    stmt = select(Store).options(selectinload(Store.categories)).where(Store.active.is_(True))
+    now = datetime.utcnow()
+    stmt = (
+        select(Store)
+        .options(selectinload(Store.categories))
+        .where(
+            Store.active.is_(True),
+            or_(Store.expires_at.is_(None), Store.expires_at >= now),
+        )
+    )
     if q:
-        stmt = stmt.where(Store.name.ilike(f"%{q}%"))
+        pattern = f"%{q}%"
+        stmt = stmt.outerjoin(Store.categories).where(
+            or_(
+                Store.name.ilike(pattern),
+                Store.description.ilike(pattern),
+                Category.name.ilike(pattern),
+            )
+        )
     if category:
         stmt = stmt.join(Store.categories).where(Category.name.ilike(f"%{category}%"))
     return list(db.scalars(stmt.order_by(Store.name)).unique().all())
