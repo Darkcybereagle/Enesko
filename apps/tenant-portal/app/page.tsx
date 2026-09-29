@@ -6,6 +6,19 @@ const API = process.env.NEXT_PUBLIC_API_URL || "/backend";
 const LOCAL_EMAIL = "tenant@enesko.local";
 const LOCAL_PASSWORD = "TenantLocal2026!";
 
+function isJwtExpired(token: string) {
+  try {
+    const payload = token.split(".")[1];
+    if (!payload) return true;
+    const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
+    const decoded = JSON.parse(window.atob(padded));
+    return typeof decoded.exp !== "number" || Date.now() >= decoded.exp * 1000;
+  } catch {
+    return true;
+  }
+}
+
 type TenantProfile = {
   user: {
     id: number;
@@ -128,6 +141,11 @@ export default function TenantPortal() {
   async function readJson(response: Response, label: string) {
     const body = await response.json().catch(() => null);
     if (!response.ok) {
+      if (response.status === 401) {
+        const error = new Error(body?.detail || "Your session has expired.");
+        error.name = "SessionExpiredError";
+        throw error;
+      }
       throw new Error(body?.detail || `${label} failed (HTTP ${response.status}).`);
     }
     return body;
@@ -179,12 +197,20 @@ export default function TenantPortal() {
   useEffect(() => {
     if (!token || !profile?.user.tenant_id) return;
 
-    const interval = window.setInterval(() => {
-      loadWorkspace(token, profile.user.tenant_id as number).catch(() => {
-        // Keep the current workspace visible if a background sync misses once.
-      });
-    }, 8000);
+    const sync = () => {
+      if (isJwtExpired(token)) {
+        expireSession();
+        return;
+      }
 
+      loadWorkspace(token, profile.user.tenant_id as number).catch((err) => {
+        if (err instanceof Error && err.name === "SessionExpiredError") {
+          expireSession();
+        }
+      });
+    };
+
+    const interval = window.setInterval(sync, 8000);
     return () => window.clearInterval(interval);
   }, [token, profile?.user.tenant_id]);
 
@@ -289,6 +315,10 @@ export default function TenantPortal() {
         `Request ${created.case.reference} created and sent to ENESKO Operations.`
       );
     } catch (err) {
+      if (err instanceof Error && err.name === "SessionExpiredError") {
+        expireSession();
+        return;
+      }
       setError(
         err instanceof Error ? err.message : "Tenant request could not be created."
       );
@@ -305,6 +335,10 @@ export default function TenantPortal() {
     try {
       await loadWorkspace(token, profile.user.tenant_id, true);
     } catch (err) {
+      if (err instanceof Error && err.name === "SessionExpiredError") {
+        expireSession();
+        return;
+      }
       setError(
         err instanceof Error ? err.message : "Tenant workspace could not be refreshed."
       );
@@ -320,7 +354,7 @@ export default function TenantPortal() {
     setError("");
   }
 
-  function signOut() {
+  function clearSession() {
     setToken("");
     setProfile(null);
     setTenant(null);
@@ -330,9 +364,19 @@ export default function TenantPortal() {
     setDocuments([]);
     setSummary("");
     setDescription("");
-    setError("");
     setNotice("");
     setLastSynced(null);
+    setBusy(false);
+  }
+
+  function expireSession() {
+    clearSession();
+    setError("Your ENESKO session expired. Sign in again to continue.");
+  }
+
+  function signOut() {
+    clearSession();
+    setError("");
   }
 
   const statusLabel = tenant?.data_status === "REFERENCE_MODEL"
