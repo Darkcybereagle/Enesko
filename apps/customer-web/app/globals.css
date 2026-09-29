@@ -1,2 +1,966 @@
-@tailwind base;@tailwind components;@tailwind utilities;
-:root{color-scheme:dark}*{box-sizing:border-box}body{margin:0;background:#07111f;color:#eef6ff;font-family:Inter,ui-sans-serif,system-ui,sans-serif}.shell{min-height:100vh;background:radial-gradient(circle at 15% 0%,#153454 0,transparent 34%),#07111f}.nav{display:flex;align-items:center;justify-content:space-between;padding:22px 7%;border-bottom:1px solid #20364d;background:#081522cc}.brand{font-weight:900;letter-spacing:.18em}.pill{border:1px solid #31516e;border-radius:999px;padding:8px 13px;color:#b9d7ee}.main{max-width:1180px;margin:auto;padding:64px 24px}.hero{max-width:760px}.eyebrow{color:#5eead4;text-transform:uppercase;letter-spacing:.16em;font-size:12px;font-weight:800}.title{font-size:clamp(42px,7vw,78px);line-height:.98;margin:14px 0 22px}.muted{color:#9db1c5;line-height:1.7}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-top:38px}.card{background:#0d1d2c;border:1px solid #1d3b55;border-radius:22px;padding:22px;box-shadow:0 18px 50px #0004}.metric{font-size:38px;font-weight:900}.input{width:100%;padding:14px 16px;border-radius:12px;border:1px solid #31516e;background:#07111f;color:white;margin:7px 0}.button{border:0;border-radius:12px;padding:13px 18px;background:#5eead4;color:#06201d;font-weight:900;cursor:pointer}.row{display:flex;gap:12px;flex-wrap:wrap}.panel{max-width:520px;margin:40px auto}.status{margin-top:14px;color:#a7f3d0}.danger{color:#fca5a5}
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+  --bg: #07111f;
+  --bg-soft: #0b1726;
+  --panel: rgba(12, 27, 43, 0.88);
+  --panel-strong: #0e2032;
+  --text: #edf7ff;
+  --muted: #9db2c7;
+  --line: rgba(135, 178, 214, 0.2);
+  --accent: #5eead4;
+  --accent-strong: #21cbb4;
+  --accent-ink: #05231f;
+  --shadow: 0 24px 70px rgba(0, 0, 0, 0.24);
+  --hero-glow: rgba(52, 211, 153, 0.15);
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f6f8fb;
+  --bg-soft: #ffffff;
+  --panel: rgba(255, 255, 255, 0.9);
+  --panel-strong: #ffffff;
+  --text: #102133;
+  --muted: #617487;
+  --line: rgba(42, 72, 99, 0.15);
+  --accent: #0f9f8c;
+  --accent-strong: #087969;
+  --accent-ink: #ffffff;
+  --shadow: 0 24px 70px rgba(34, 57, 78, 0.1);
+  --hero-glow: rgba(15, 159, 140, 0.12);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--bg);
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  outline-offset: 2px;
+}
+
+.appShell {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 15% -10%, var(--hero-glow), transparent 34%),
+    radial-gradient(circle at 90% 14%, color-mix(in srgb, var(--accent) 8%, transparent), transparent 24%),
+    var(--bg);
+}
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 18px clamp(20px, 6vw, 80px);
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--bg) 84%, transparent);
+  backdrop-filter: blur(18px);
+}
+
+.brandButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+  padding: 0;
+}
+
+.brandButton > span:last-child {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.brandButton strong {
+  letter-spacing: 0.15em;
+  font-size: 15px;
+}
+
+.brandButton small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.brandMark,
+.visualCore {
+  display: grid;
+  place-items: center;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 900;
+}
+
+.brandMark {
+  width: 40px;
+  height: 40px;
+  border-radius: 13px;
+}
+
+.topActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.verifiedPill,
+.themeToggle,
+.backButton,
+.neutralBadge,
+.liveBadge,
+.sourceDot,
+.mapPending {
+  border-radius: 999px;
+}
+
+.verifiedPill {
+  padding: 9px 13px;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  font-size: 12px;
+}
+
+.themeToggle,
+.backButton,
+.secondaryAction {
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.themeToggle {
+  padding: 9px 14px;
+}
+
+.main {
+  width: min(1180px, calc(100% - 36px));
+  margin: 0 auto;
+  padding: 54px 0 80px;
+}
+
+.backButton {
+  padding: 10px 14px;
+  margin-bottom: 24px;
+}
+
+.hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
+  gap: clamp(36px, 7vw, 92px);
+  align-items: center;
+  min-height: 570px;
+}
+
+.heroCopy {
+  max-width: 730px;
+}
+
+.eyebrow {
+  display: inline-block;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.hero h1,
+.contentSection > .sectionHeading h1,
+.featureHero h1,
+.formSection h1 {
+  margin: 14px 0 20px;
+  letter-spacing: -0.045em;
+  line-height: 0.98;
+}
+
+.hero h1 {
+  max-width: 760px;
+  font-size: clamp(52px, 7.6vw, 92px);
+}
+
+.hero p,
+.sectionHeading p,
+.featureHero p,
+.formSection > p,
+.emptyState p {
+  color: var(--muted);
+  line-height: 1.75;
+}
+
+.hero p {
+  max-width: 680px;
+  font-size: clamp(17px, 2vw, 20px);
+}
+
+.askBar,
+.inlineSearch {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 28px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+
+.askBar input,
+.inlineSearch input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text);
+  padding: 14px 12px;
+}
+
+.askBar input::placeholder,
+.inlineSearch input::placeholder,
+.productForm input::placeholder,
+.productForm textarea::placeholder {
+  color: color-mix(in srgb, var(--muted) 80%, transparent);
+}
+
+.askBar button,
+.inlineSearch button,
+.productForm button,
+.storeFooter button,
+.primaryLink {
+  border: 0;
+  border-radius: 12px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 900;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.askBar button,
+.inlineSearch button {
+  padding: 14px 18px;
+  white-space: nowrap;
+}
+
+.trustRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 18px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.trustRow span::before {
+  content: "•";
+  color: var(--accent);
+  margin-right: 8px;
+}
+
+.heroVisual {
+  position: relative;
+  min-height: 420px;
+  border-radius: 34px;
+  border: 1px solid var(--line);
+  overflow: hidden;
+  background:
+    linear-gradient(155deg, color-mix(in srgb, var(--panel-strong) 95%, transparent), var(--panel)),
+    repeating-linear-gradient(0deg, transparent, transparent 36px, color-mix(in srgb, var(--line) 50%, transparent) 37px);
+  box-shadow: var(--shadow);
+}
+
+.orbit {
+  position: absolute;
+  border: 1px solid color-mix(in srgb, var(--accent) 38%, transparent);
+  border-radius: 50%;
+}
+
+.orbitOne {
+  width: 310px;
+  height: 310px;
+  right: -80px;
+  top: -70px;
+}
+
+.orbitTwo {
+  width: 240px;
+  height: 240px;
+  left: -60px;
+  bottom: -70px;
+}
+
+.visualCore {
+  position: absolute;
+  width: 94px;
+  height: 94px;
+  border-radius: 28px;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 38px;
+  box-shadow: 0 18px 50px color-mix(in srgb, var(--accent) 25%, transparent);
+}
+
+.visualCard {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 16px 18px;
+  min-width: 190px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--panel-strong) 88%, transparent);
+  box-shadow: var(--shadow);
+}
+
+.visualCard span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.visualCardTop {
+  left: 30px;
+  top: 42px;
+}
+
+.visualCardBottom {
+  right: 30px;
+  bottom: 46px;
+}
+
+.answerPanel,
+.emptyState,
+.parkingCard,
+.routePanel,
+.productForm,
+.caseToast,
+.noticeBar {
+  border: 1px solid var(--line);
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+
+.answerPanel {
+  margin-top: -12px;
+  padding: 22px;
+  border-radius: 20px;
+}
+
+.answerPanel p {
+  margin-bottom: 0;
+  line-height: 1.7;
+}
+
+.compactResults {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.resultChip {
+  border: 1px solid var(--line);
+  background: var(--bg-soft);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 9px 12px;
+  cursor: pointer;
+}
+
+.actionSection,
+.contentSection {
+  margin-top: 68px;
+}
+
+.sectionHeading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 26px;
+}
+
+.sectionHeading h2,
+.sectionHeading h1 {
+  margin: 8px 0 0;
+}
+
+.sectionHeading h2 {
+  font-size: clamp(32px, 5vw, 48px);
+}
+
+.actionGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.actionCard {
+  position: relative;
+  min-height: 190px;
+  padding: 22px;
+  text-align: left;
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  background: var(--panel);
+  color: var(--text);
+  cursor: pointer;
+  box-shadow: var(--shadow);
+  transition: transform 160ms ease, border-color 160ms ease;
+}
+
+.actionCard:hover {
+  transform: translateY(-3px);
+  border-color: color-mix(in srgb, var(--accent) 52%, var(--line));
+}
+
+.actionCard strong {
+  display: block;
+  margin-top: 40px;
+  font-size: 22px;
+}
+
+.actionCard p {
+  margin: 8px 34px 0 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.actionNumber {
+  position: absolute;
+  top: 20px;
+  left: 22px;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.actionArrow {
+  position: absolute;
+  right: 20px;
+  bottom: 20px;
+  color: var(--accent);
+  font-size: 22px;
+}
+
+.contentSection {
+  min-height: 560px;
+}
+
+.contentSection > .sectionHeading h1,
+.featureHero h1,
+.formSection h1 {
+  font-size: clamp(42px, 6vw, 70px);
+}
+
+.inlineSearch {
+  max-width: 760px;
+  margin-bottom: 28px;
+}
+
+.storeGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.storeCard {
+  display: flex;
+  flex-direction: column;
+  min-height: 250px;
+  padding: 22px;
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+
+.storeTopline,
+.storeFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.storeTopline {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.sourceDot {
+  padding: 6px 9px;
+  background: color-mix(in srgb, var(--accent) 11%, transparent);
+  color: var(--accent);
+}
+
+.storeCard h3 {
+  margin: 26px 0 10px;
+  font-size: 26px;
+}
+
+.storeCard p {
+  color: var(--muted);
+  line-height: 1.65;
+}
+
+.storeCard small {
+  display: block;
+  margin-top: 6px;
+  color: var(--muted);
+}
+
+.storeFooter {
+  margin-top: auto;
+  padding-top: 22px;
+}
+
+.storeFooter button {
+  padding: 10px 13px;
+}
+
+.mapPending {
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.featureHero {
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr;
+  gap: 32px;
+  align-items: end;
+  padding: 34px;
+  border: 1px solid var(--line);
+  border-radius: 28px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+
+.featureStats {
+  display: grid;
+  gap: 12px;
+}
+
+.featureStats > div {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--bg-soft);
+}
+
+.featureStats span,
+.parkingMeta span {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  margin-bottom: 5px;
+}
+
+.emptyState {
+  margin-top: 20px;
+  padding: 30px;
+  border-radius: 22px;
+}
+
+.primaryLink {
+  display: inline-flex;
+  margin-top: 12px;
+  padding: 12px 15px;
+}
+
+.secondaryAction {
+  padding: 11px 14px;
+  border-radius: 12px;
+}
+
+.parkingGrid {
+  display: grid;
+  gap: 16px;
+}
+
+.parkingCard {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 28px;
+  padding: 28px;
+  border-radius: 24px;
+}
+
+.liveBadge,
+.neutralBadge {
+  display: inline-flex;
+  width: fit-content;
+  padding: 7px 10px;
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.liveBadge {
+  background: color-mix(in srgb, var(--accent) 13%, transparent);
+  color: var(--accent);
+}
+
+.neutralBadge {
+  border: 1px solid var(--line);
+  color: var(--muted);
+}
+
+.parkingCard h2 {
+  margin: 18px 0 6px;
+}
+
+.parkingStatus {
+  margin: 0;
+  font-size: clamp(28px, 4vw, 46px);
+  font-weight: 900;
+  letter-spacing: -0.035em;
+}
+
+.parkingMeta {
+  display: grid;
+  gap: 12px;
+}
+
+.parkingMeta > div {
+  padding: 15px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--bg-soft);
+}
+
+.navigationLayout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(300px, 0.8fr);
+  gap: 18px;
+}
+
+.miniMap {
+  position: relative;
+  min-height: 480px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 28px;
+  background:
+    linear-gradient(45deg, color-mix(in srgb, var(--line) 25%, transparent) 25%, transparent 25%) 0 0 / 56px 56px,
+    linear-gradient(-45deg, color-mix(in srgb, var(--line) 25%, transparent) 25%, transparent 25%) 0 0 / 56px 56px,
+    var(--panel);
+  box-shadow: var(--shadow);
+}
+
+.mapPath {
+  position: absolute;
+  left: 18%;
+  right: 16%;
+  top: 50%;
+  height: 6px;
+  transform: rotate(-14deg);
+  transform-origin: center;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 45%, var(--text)));
+  box-shadow: 0 0 30px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+.mapNode {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 160px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--panel-strong);
+  box-shadow: var(--shadow);
+}
+
+.mapNode::before {
+  content: "";
+  position: absolute;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
+.mapNode span {
+  color: var(--muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.startNode {
+  left: 8%;
+  bottom: 12%;
+}
+
+.startNode::before {
+  right: -23px;
+  top: 50%;
+}
+
+.midNode {
+  left: 41%;
+  top: 38%;
+}
+
+.midNode::before {
+  left: -22px;
+  top: 50%;
+}
+
+.endNode {
+  right: 7%;
+  top: 12%;
+}
+
+.endNode::before {
+  left: -22px;
+  bottom: -20px;
+}
+
+.routePanel {
+  padding: 26px;
+  border-radius: 28px;
+}
+
+.routePanel h2 {
+  margin: 20px 0 8px;
+}
+
+.routeDistance {
+  font-size: 28px;
+  font-weight: 900;
+}
+
+.routePanel ol {
+  padding-left: 22px;
+  color: var(--muted);
+  line-height: 1.8;
+}
+
+.finePrint {
+  margin-top: 24px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.formSection {
+  max-width: 760px;
+}
+
+.productForm {
+  display: grid;
+  gap: 16px;
+  margin-top: 28px;
+  padding: 26px;
+  border-radius: 24px;
+}
+
+.productForm label {
+  display: grid;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.productForm input,
+.productForm textarea {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: var(--bg-soft);
+  color: var(--text);
+  padding: 14px 15px;
+}
+
+.productForm textarea {
+  min-height: 130px;
+  resize: vertical;
+}
+
+.productForm button {
+  width: fit-content;
+  padding: 13px 17px;
+}
+
+.caseToast,
+.noticeBar {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: min(520px, calc(100vw - 48px));
+  padding: 14px 16px;
+  border-radius: 16px;
+}
+
+.caseToast span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.caseToast button,
+.noticeBar button {
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.noticeBar {
+  left: 24px;
+  right: auto;
+  color: var(--text);
+}
+
+@media (max-width: 920px) {
+  .hero,
+  .featureHero,
+  .navigationLayout,
+  .parkingCard {
+    grid-template-columns: 1fr;
+  }
+
+  .hero {
+    min-height: auto;
+  }
+
+  .heroVisual {
+    min-height: 340px;
+  }
+
+  .actionGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .topbar {
+    padding: 14px 18px;
+  }
+
+  .verifiedPill {
+    display: none;
+  }
+
+  .main {
+    width: min(100% - 28px, 1180px);
+    padding-top: 34px;
+  }
+
+  .hero h1 {
+    font-size: clamp(46px, 15vw, 64px);
+  }
+
+  .askBar,
+  .inlineSearch {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .askBar button,
+  .inlineSearch button {
+    width: 100%;
+  }
+
+  .heroVisual {
+    min-height: 310px;
+  }
+
+  .visualCard {
+    min-width: 160px;
+    max-width: 185px;
+  }
+
+  .visualCardTop {
+    left: 18px;
+    top: 24px;
+  }
+
+  .visualCardBottom {
+    right: 18px;
+    bottom: 24px;
+  }
+
+  .actionGrid,
+  .storeGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .actionCard {
+    min-height: 170px;
+  }
+
+  .sectionHeading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .miniMap {
+    min-height: 390px;
+  }
+
+  .mapNode {
+    width: 130px;
+    font-size: 12px;
+  }
+
+  .caseToast,
+  .noticeBar {
+    left: 14px;
+    right: 14px;
+    bottom: 14px;
+    max-width: none;
+  }
+}
