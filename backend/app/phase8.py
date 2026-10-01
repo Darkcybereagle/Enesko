@@ -56,6 +56,7 @@ class VoiceTurnOut(BaseModel):
     session: VoiceOut
     answer: str
     intent: str
+    language: str = "en-NG"
     needs_human: bool
     sources: list[dict] = Field(default_factory=list)
     data: dict | None = None
@@ -118,6 +119,7 @@ def voice_turn(ref: str, payload: VoiceTurn, db: Session = Depends(get_db)):
         "session": row,
         "answer": result["answer"],
         "intent": result["intent"],
+        "language": result.get("language", "en-NG"),
         "needs_human": result["needs_human"],
         "sources": result.get("sources", []),
         "data": result.get("data"),
