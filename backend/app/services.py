@@ -22,6 +22,17 @@ def _fold_text(text: str) -> str:
     normalized = unicodedata.normalize("NFKD", text.lower())
     return "".join(char for char in normalized if not unicodedata.combining(char))
 
+
+def _contains_any(text: str, terms: tuple[str, ...]) -> bool:
+    for term in terms:
+        if " " in term:
+            if term in text:
+                return True
+            continue
+        if re.search(rf"\b{re.escape(term)}\b", text):
+            return True
+    return False
+
 SEARCH_SYNONYMS = {
     "shoe": {"footwear", "sneaker", "trainer"},
     "shoes": {"footwear", "sneakers", "trainers"},
@@ -332,31 +343,31 @@ def detect_language(message: str) -> str:
 
 def classify_intent(message: str) -> str:
     text = _fold_text(message)
-    if any(term in text for term in (
+    if _contains_any(text, (
         "human", "customer care", "customer service", "speak to someone", "agent",
         "iranlowo eniyan", "ba eniyan soro", "so mi po mo eniyan",
     )):
         return "human_handoff"
-    if any(term in text for term in ("lost", "missing", "misplaced", "padanu", "sonu")):
+    if _contains_any(text, ("lost", "missing", "misplaced", "padanu", "sonu")):
         return "lost_found"
-    if any(term in text for term in ("movie", "cinema", "showtime", "film showing", "films showing", "sinima", "fiimu")):
+    if _contains_any(text, ("movie", "cinema", "showtime", "film showing", "films showing", "sinima", "fiimu")):
         return "cinema"
-    if any(term in text for term in ("parking", "park my car", "parking space", "paaki", "ibi idako", "pa oko")):
+    if _contains_any(text, ("parking", "park my car", "parking space", "paaki", "ibi idako", "pa oko")):
         return "parking"
-    if any(term in text for term in (
+    if _contains_any(text, (
         "take me to", "navigate to", "directions to", "how do i get to", "guide me to",
         "mu mi lo si", "dari mi lo si", "ona si",
     )):
         return "navigation"
-    if len(_shopping_need_clauses(message)) >= 2 and any(
-        term in text
-        for term in (
+    if len(_shopping_need_clauses(message)) >= 2 and _contains_any(
+        text,
+        (
             "buy", "get", "eat", "food", "water", "drink", "shoe", "shoes",
             "medicine", "perfume", "makeup", "phone", "clothes", "gift",
-        )
+        ),
     ):
         return "shopping_plan"
-    if any(term in text for term in (
+    if _contains_any(text, (
         "where is", "where can i", "find", "buy", "store", "shop", "restaurant",
         "nibo ni", "ibo ni", "ra", "soobu", "ounje",
     )):
