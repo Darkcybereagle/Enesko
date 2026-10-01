@@ -79,7 +79,7 @@ def search_stores(db: Session, query: str) -> list[Store]:
 
     ranked = sorted(
         ((score(store), store) for store in stores),
-        key=lambda item: (-item[0], item[1].name),
+        key=lambda item: (-item[0], -item[1].discovery_priority, item[1].name),
     )
     return [store for points, store in ranked if points > 0][:5]
 
