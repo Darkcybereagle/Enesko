@@ -233,3 +233,65 @@ def test_english_voice_remains_default(client):
     )
     assert response.status_code==200
     assert response.json()["language"]=="en-NG"
+
+
+
+def test_multi_need_shopping_plan_matches_items_to_relevant_stores(client):
+    response=client.post(
+        "/api/v1/assistant/chat",
+        json={
+            "message":"I want to buy sport shoe and want to eat then buy water",
+            "channel":"voice",
+        },
+    )
+    assert response.status_code==200
+    body=response.json()
+    assert body["intent"]=="shopping_plan"
+
+    plan=body["data"]["shopping_plan"]
+    assert len(plan["needs"])==3
+
+    by_need={item["need"]: item for item in plan["needs"]}
+    shoe=next(item for key,item in by_need.items() if "shoe" in key)
+    food=next(item for key,item in by_need.items() if "eat" in key)
+    water=next(item for key,item in by_need.items() if "water" in key)
+
+    assert shoe["recommended_store"]["name"]=="Adidas"
+    assert "Nike Store Ikeja City Mall" in {
+        option["name"] for option in shoe["alternatives"]
+    }
+    assert food["recommended_store"] is not None
+    assert water["recommended_store"]["name"]=="Shoprite"
+
+    assert sorted(item["suggested_order"] for item in plan["needs"])==[1,2,3]
+    assert plan["proximity_basis"] in {
+        "REFERENCE_ROUTE_DISTANCE",
+        "PARTIAL_REFERENCE_ROUTE_PLUS_RELEVANCE",
+    }
+    assert "Stop 1:" in body["answer"]
+    assert "Adidas" in body["answer"]
+    assert "Shoprite" in body["answer"]
+
+
+def test_multi_need_plan_does_not_fake_full_proximity_when_stores_are_unmapped(client):
+    response=client.post(
+        "/api/v1/assistant/chat",
+        json={
+            "message":"I want to buy sport shoe and want to eat then buy water",
+            "channel":"web",
+        },
+    )
+    assert response.status_code==200
+    plan=response.json()["data"]["shopping_plan"]
+    assert plan["exact_proximity_order"] is False
+    assert plan["proximity_basis"]=="PARTIAL_REFERENCE_ROUTE_PLUS_RELEVANCE"
+    assert "not yet mapped precisely enough" in response.json()["answer"]
+
+
+def test_lost_phone_keeps_lost_found_priority_over_shopping_detection(client):
+    response=client.post(
+        "/api/v1/assistant/chat",
+        json={"message":"I lost my phone and need help","channel":"voice"},
+    )
+    assert response.status_code==200
+    assert response.json()["intent"]=="lost_found"
