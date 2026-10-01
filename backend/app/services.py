@@ -226,23 +226,48 @@ def build_shopping_plan(db: Session, message: str) -> dict | None:
         for item in plan
         if item["recommended_store"]
         and item["recommended_store"]["map_node_code"]
-        and item["distance_from_start_m"] is not None
     ]
-    mapped_stops.sort(key=lambda item: item["distance_from_start_m"])
+    remaining = list(mapped_stops)
+    ordered_mapped = []
+    current_node = "ICM-ENTRANCE-2"
 
+    while remaining:
+        ranked_next = []
+        for item in remaining:
+            target_node = item["recommended_store"]["map_node_code"]
+            distance = _route_distance(db, current_node, target_node)
+            if distance is not None:
+                ranked_next.append((distance, item))
+
+        if not ranked_next:
+            break
+
+        ranked_next.sort(key=lambda pair: pair[0])
+        distance, selected = ranked_next[0]
+        selected["distance_from_previous_m"] = distance
+        selected["route_from_node"] = current_node
+        ordered_mapped.append(selected)
+        current_node = selected["recommended_store"]["map_node_code"]
+        remaining.remove(selected)
+
+    mapped_without_route = [item for item in mapped_stops if item not in ordered_mapped]
     unmapped_stops = [
         item
         for item in plan
         if item["recommended_store"]
-        and item not in mapped_stops
+        and not item["recommended_store"]["map_node_code"]
     ]
     unresolved = [item for item in plan if not item["recommended_store"]]
 
-    ordered = mapped_stops + unmapped_stops + unresolved
+    ordered = ordered_mapped + mapped_without_route + unmapped_stops + unresolved
     for index, item in enumerate(ordered, start=1):
         item["suggested_order"] = index
 
-    exact_proximity = len(unmapped_stops) == 0 and len(unresolved) == 0
+    exact_proximity = (
+        len(mapped_without_route) == 0
+        and len(unmapped_stops) == 0
+        and len(unresolved) == 0
+    )
     return {
         "needs": ordered,
         "start_node": "ICM-ENTRANCE-2",
@@ -307,14 +332,6 @@ def detect_language(message: str) -> str:
 
 def classify_intent(message: str) -> str:
     text = _fold_text(message)
-    if len(_shopping_need_clauses(message)) >= 2 and any(
-        term in text
-        for term in (
-            "buy", "get", "eat", "food", "water", "drink", "shoe", "shoes",
-            "medicine", "perfume", "makeup", "phone", "clothes", "gift",
-        )
-    ):
-        return "shopping_plan"
     if any(term in text for term in (
         "human", "customer care", "customer service", "speak to someone", "agent",
         "iranlowo eniyan", "ba eniyan soro", "so mi po mo eniyan",
@@ -331,6 +348,14 @@ def classify_intent(message: str) -> str:
         "mu mi lo si", "dari mi lo si", "ona si",
     )):
         return "navigation"
+    if len(_shopping_need_clauses(message)) >= 2 and any(
+        term in text
+        for term in (
+            "buy", "get", "eat", "food", "water", "drink", "shoe", "shoes",
+            "medicine", "perfume", "makeup", "phone", "clothes", "gift",
+        )
+    ):
+        return "shopping_plan"
     if any(term in text for term in (
         "where is", "where can i", "find", "buy", "store", "shop", "restaurant",
         "nibo ni", "ibo ni", "ra", "soobu", "ounje",
