@@ -372,18 +372,24 @@ def _orchestrate_base(db: Session, message: str) -> dict:
         if plan:
             need_lines = []
             for item in plan["needs"]:
+                order = item.get("suggested_order")
                 store = item["recommended_store"]
                 if not store:
                     need_lines.append(
-                        f"For {item['need']}, I do not yet have a verified matching store."
+                        f"Stop {order}: for {item['need']}, I do not yet have a verified matching store."
                     )
                     continue
 
                 alternatives = item["alternatives"]
-                line = f"For {item['need']}, I recommend {store['name']}"
+                line = f"Stop {order}: for {item['need']}, I recommend {store['name']}"
                 if alternatives:
-                    names = ", ".join(option["name"] for option in alternatives[:2])
-                    line += f"; alternatives include {names}"
+                    names = ", ".join(option["name"] for option in alternatives)
+                    line += f"; other matching options are {names}"
+                if item.get("distance_from_previous_m") is not None:
+                    line += (
+                        f". This mapped leg is about {item['distance_from_previous_m']:.0f} metres "
+                        "on the current ENESKO reference route"
+                    )
                 line += "."
                 need_lines.append(line)
 
