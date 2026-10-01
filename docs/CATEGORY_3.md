@@ -41,6 +41,16 @@ The Customer Web app includes an ENESKO-branded voice interface:
 
 The web voice screen is intentionally **not a WhatsApp clone**. It is a mall-concierge surface. ENESKO inside WhatsApp naturally uses the WhatsApp interface.
 
+The voice concierge also supports:
+- a warm spoken Ikeja City Mall welcome when the customer opens Voice;
+- English (Nigeria) speech mode using `en-NG`;
+- Yorùbá speech mode using `yo-NG`;
+- automatic Yorùbá detection for typed requests;
+- Yorùbá operational replies using the same verified ENESKO tools and records;
+- rotation across distinct speech-synthesis voices available on the customer's device.
+
+Browser speech APIs expose voice language/name but not a reliable gender attribute, so the local browser implementation does not claim guaranteed male/female Nigerian voices. A production TTS provider can later supply controlled named Nigerian male/female voice profiles without changing the ENESKO conversation engine.
+
 ### 3.4 — WhatsApp channel
 - Meta WhatsApp Cloud adapter;
 - webhook verification;
