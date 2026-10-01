@@ -49,6 +49,11 @@ class StoreOut(BaseModel):
     verified_at: datetime | None
     expires_at: datetime | None
     map_node_code: str | None
+    discovery_priority: int
+    verification_confidence: str
+    location_confidence: str
+    public_rating: float | None
+    public_review_count: int | None
     active: bool
     categories: list[CategoryOut] = Field(default_factory=list)
     model_config = ConfigDict(from_attributes=True)
