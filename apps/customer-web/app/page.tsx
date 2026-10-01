@@ -9,13 +9,22 @@ type Section = "home" | "voice" | "stores" | "cinema" | "parking" | "navigate" |
 type StoreItem = {
   id: number;
   name: string;
+  unit: string | null;
+  floor_id: number | null;
   description: string | null;
   nearest_landmark: string | null;
   opening_hours: string | null;
+  data_status: string;
   source_name: string | null;
+  source_url: string | null;
   verified_at: string | null;
   expires_at: string | null;
   map_node_code: string | null;
+  discovery_priority: number;
+  verification_confidence: string;
+  location_confidence: string;
+  public_rating: number | null;
+  public_review_count: number | null;
   categories: { id: number; name: string }[];
 };
 
@@ -734,12 +743,24 @@ export default function Home() {
                 <article className="storeCard" key={store.id}>
                   <div className="storeTopline">
                     <span>{store.categories.map((category) => category.name).join(" · ")}</span>
-                    <span className="sourceDot">Verified</span>
+                    <span className={store.data_status === "PUBLIC_VERIFIED" ? "sourceDot" : "neutralBadge"}>
+                      {store.data_status === "PUBLIC_VERIFIED" ? "Verified source" : "Public reference"}
+                    </span>
                   </div>
                   <h3>{store.name}</h3>
                   <p>{store.description}</p>
-                  {store.nearest_landmark && <small>Near {store.nearest_landmark}</small>}
+                  {store.unit && <small>Unit: {store.unit}</small>}
+                  {store.nearest_landmark && <small>Location hint: {store.nearest_landmark}</small>}
                   {store.opening_hours && <small>{store.opening_hours}</small>}
+                  {store.public_rating !== null && (
+                    <small>
+                      Public rating reference: {store.public_rating.toFixed(1)}
+                      {store.public_review_count ? ` · ${store.public_review_count} reviews` : ""}
+                    </small>
+                  )}
+                  <small>
+                    Evidence: {store.verification_confidence.toLowerCase()} confidence · {store.location_confidence.replaceAll("_", " ").toLowerCase()}
+                  </small>
                   <div className="storeFooter">
                     <small>{store.source_name}</small>
                     {store.map_node_code ? (
