@@ -144,6 +144,56 @@ def _node_by_any_code(db: Session, *codes: str) -> MapNode | None:
     return db.scalar(select(MapNode).where(MapNode.code.in_(codes)).order_by(MapNode.id))
 
 
+def _upsert_reference_node(
+    db: Session,
+    *,
+    mall_id: int,
+    code: str,
+    name: str,
+    node_type: str,
+    floor_id: int | None,
+    zone_id: int | None = None,
+) -> MapNode:
+    node = db.scalar(select(MapNode).where(MapNode.code == code))
+    if not node:
+        node = MapNode(mall_id=mall_id, code=code, name=name)
+        db.add(node)
+    node.mall_id = mall_id
+    node.floor_id = floor_id
+    node.zone_id = zone_id
+    node.name = name
+    node.node_type = node_type
+    node.qr_code = f"ENESKO-{code}"
+    node.data_status = "REFERENCE_MODEL"
+    db.flush()
+    return node
+
+
+def _upsert_reference_edge(
+    db: Session,
+    *,
+    start: MapNode,
+    end: MapNode,
+    distance_m: float,
+    instruction: str,
+    accessible: bool = True,
+) -> MapEdge:
+    edge = db.scalar(
+        select(MapEdge).where(
+            MapEdge.from_node_id == start.id,
+            MapEdge.to_node_id == end.id,
+        )
+    )
+    if not edge:
+        edge = MapEdge(from_node_id=start.id, to_node_id=end.id)
+        db.add(edge)
+    edge.distance_m = distance_m
+    edge.instruction = instruction
+    edge.accessible = accessible
+    edge.bidirectional = True
+    return edge
+
+
 def seed_phase4(db: Session) -> None:
     from app.models import Floor, Mall, Zone
 
@@ -152,75 +202,279 @@ def seed_phase4(db: Session) -> None:
         return
 
     ground = db.scalar(select(Floor).where(Floor.mall_id == mall.id, Floor.level == 0))
-    zone = db.scalar(select(Zone).where(Zone.floor_id == ground.id).order_by(Zone.id)) if ground else None
-
-    entrance = _node_by_any_code(db, "ICM-ENTRANCE-2", "DEMO-ENTRANCE-1")
-    junction = _node_by_any_code(db, "ICM-CONCOURSE-A", "DEMO-JUNCTION-A")
-    samsung = _node_by_any_code(db, "ICM-SAMSUNG", "DEMO-SPORTS-STORE")
-
-    if not entrance:
-        entrance = MapNode(mall_id=mall.id)
-        db.add(entrance)
-    if not junction:
-        junction = MapNode(mall_id=mall.id)
-        db.add(junction)
-    if not samsung:
-        samsung = MapNode(mall_id=mall.id)
-        db.add(samsung)
-
-    entrance.floor_id = ground.id if ground else None
-    entrance.zone_id = zone.id if zone else None
-    entrance.code = "ICM-ENTRANCE-2"
-    entrance.name = "Entrance 2"
-    entrance.node_type = "ENTRANCE"
-    entrance.qr_code = "ENESKO-ICM-ENTRANCE-2"
-    entrance.data_status = "REFERENCE_MODEL"
-
-    junction.floor_id = ground.id if ground else None
-    junction.zone_id = zone.id if zone else None
-    junction.code = "ICM-CONCOURSE-A"
-    junction.name = "Main Concourse"
-    junction.node_type = "WAYPOINT"
-    junction.qr_code = "ENESKO-ICM-CONCOURSE-A"
-    junction.data_status = "REFERENCE_MODEL"
-
-    samsung.floor_id = ground.id if ground else None
-    samsung.zone_id = zone.id if zone else None
-    samsung.code = "ICM-SAMSUNG"
-    samsung.name = "Samsung Experience Store"
-    samsung.node_type = "STORE"
-    samsung.qr_code = "ENESKO-ICM-SAMSUNG"
-    samsung.data_status = "REFERENCE_MODEL"
-
-    db.flush()
-
-    edge_one = db.scalar(
-        select(MapEdge).where(
-            MapEdge.from_node_id == entrance.id,
-            MapEdge.to_node_id == junction.id,
-        )
+    top = db.scalar(select(Floor).where(Floor.mall_id == mall.id, Floor.level == 1))
+    ground_zone = (
+        db.scalar(select(Zone).where(Zone.floor_id == ground.id).order_by(Zone.id))
+        if ground
+        else None
     )
-    if not edge_one:
-        edge_one = MapEdge(from_node_id=entrance.id, to_node_id=junction.id)
-        db.add(edge_one)
-    edge_one.distance_m = 25.0
-    edge_one.instruction = "Proceed from Entrance 2 toward the main concourse."
-    edge_one.accessible = True
-    edge_one.bidirectional = True
-
-    edge_two = db.scalar(
-        select(MapEdge).where(
-            MapEdge.from_node_id == junction.id,
-            MapEdge.to_node_id == samsung.id,
-        )
+    top_zone = (
+        db.scalar(select(Zone).where(Zone.floor_id == top.id).order_by(Zone.id))
+        if top
+        else None
     )
-    if not edge_two:
-        edge_two = MapEdge(from_node_id=junction.id, to_node_id=samsung.id)
-        db.add(edge_two)
-    edge_two.distance_m = 18.0
-    edge_two.instruction = "Continue from the main concourse toward the Samsung Experience Store."
-    edge_two.accessible = True
-    edge_two.bidirectional = True
+
+    entrance1 = _upsert_reference_node(
+        db,
+        mall_id=mall.id,
+        code="ICM-ENTRANCE-1",
+        name="Entrance 1",
+        node_type="ENTRANCE",
+        floor_id=ground.id if ground else None,
+        zone_id=ground_zone.id if ground_zone else None,
+    )
+    entrance2 = _upsert_reference_node(
+        db,
+        mall_id=mall.id,
+        code="ICM-ENTRANCE-2",
+        name="Entrance 2",
+        node_type="ENTRANCE",
+        floor_id=ground.id if ground else None,
+        zone_id=ground_zone.id if ground_zone else None,
+    )
+    entrance3 = _upsert_reference_node(
+        db,
+        mall_id=mall.id,
+        code="ICM-ENTRANCE-3",
+        name="Food Court-side Entrance",
+        node_type="ENTRANCE",
+        floor_id=ground.id if ground else None,
+        zone_id=ground_zone.id if ground_zone else None,
+    )
+    atrium = _upsert_reference_node(
+        db,
+        mall_id=mall.id,
+        code="ICM-ATRIUM-1",
+        name="Atrium One Reference",
+        node_type="LANDMARK",
+        floor_id=ground.id if ground else None,
+        zone_id=ground_zone.id if ground_zone else None,
+    )
+    concourse = _upsert_reference_node(
+        db,
+        mall_id=mall.id,
+        code="ICM-CONCOURSE-A",
+        name="Main Concourse",
+        node_type="WAYPOINT",
+        floor_id=ground.id if ground else None,
+        zone_id=ground_zone.id if ground_zone else None,
+    )
+    vertical_ground = _upsert_reference_node(
+        db,
+        mall_id=mall.id,
+        code="ICM-VERTICAL-CORE-G",
+        name="Escalator / Elevator Core — Ground",
+        node_type="VERTICAL_CIRCULATION",
+        floor_id=ground.id if ground else None,
+        zone_id=ground_zone.id if ground_zone else None,
+    )
+    vertical_top = _upsert_reference_node(
+        db,
+        mall_id=mall.id,
+        code="ICM-VERTICAL-CORE-T",
+        name="Escalator / Elevator Core — Top",
+        node_type="VERTICAL_CIRCULATION",
+        floor_id=top.id if top else None,
+        zone_id=top_zone.id if top_zone else None,
+    )
+    top_concourse = _upsert_reference_node(
+        db,
+        mall_id=mall.id,
+        code="ICM-TOP-CONCOURSE",
+        name="Top Floor Concourse",
+        node_type="WAYPOINT",
+        floor_id=top.id if top else None,
+        zone_id=top_zone.id if top_zone else None,
+    )
+    food_court = _upsert_reference_node(
+        db,
+        mall_id=mall.id,
+        code="ICM-FOOD-COURT",
+        name="Food Court Reference Area",
+        node_type="LANDMARK",
+        floor_id=top.id if top else None,
+        zone_id=top_zone.id if top_zone else None,
+    )
+
+    samsung = _upsert_reference_node(
+        db,
+        mall_id=mall.id,
+        code="ICM-SAMSUNG",
+        name="Samsung Experience Store",
+        node_type="STORE",
+        floor_id=ground.id if ground else None,
+        zone_id=ground_zone.id if ground_zone else None,
+    )
+    miniso = _upsert_reference_node(
+        db,
+        mall_id=mall.id,
+        code="ICM-MINISO",
+        name="Miniso — Shop 19+20",
+        node_type="STORE",
+        floor_id=ground.id if ground else None,
+        zone_id=ground_zone.id if ground_zone else None,
+    )
+    istore = _upsert_reference_node(
+        db,
+        mall_id=mall.id,
+        code="ICM-ISTORE",
+        name="iStore — Shop L62",
+        node_type="STORE",
+        floor_id=ground.id if ground else None,
+        zone_id=ground_zone.id if ground_zone else None,
+    )
+    pointek = _upsert_reference_node(
+        db,
+        mall_id=mall.id,
+        code="ICM-POINTEK",
+        name="Pointek — Shop L28",
+        node_type="STORE",
+        floor_id=ground.id if ground else None,
+        zone_id=ground_zone.id if ground_zone else None,
+    )
+    healthplus = _upsert_reference_node(
+        db,
+        mall_id=mall.id,
+        code="ICM-HEALTHPLUS",
+        name="HealthPlus — Shop L29",
+        node_type="STORE",
+        floor_id=ground.id if ground else None,
+        zone_id=ground_zone.id if ground_zone else None,
+    )
+    ruff = _upsert_reference_node(
+        db,
+        mall_id=mall.id,
+        code="ICM-RUFF",
+        name="Ruff 'n' Tumble — Shop L47",
+        node_type="STORE",
+        floor_id=ground.id if ground else None,
+        zone_id=ground_zone.id if ground_zone else None,
+    )
+    studio24 = _upsert_reference_node(
+        db,
+        mall_id=mall.id,
+        code="ICM-STUDIO24",
+        name="Studio24 — Shop L48",
+        node_type="STORE",
+        floor_id=ground.id if ground else None,
+        zone_id=ground_zone.id if ground_zone else None,
+    )
+    ocean = _upsert_reference_node(
+        db,
+        mall_id=mall.id,
+        code="ICM-OCEAN-BASKET",
+        name="Ocean Basket — Shop U06",
+        node_type="STORE",
+        floor_id=top.id if top else None,
+        zone_id=top_zone.id if top_zone else None,
+    )
+    silverbird = _upsert_reference_node(
+        db,
+        mall_id=mall.id,
+        code="ICM-SILVERBIRD",
+        name="Silverbird Cinemas",
+        node_type="ENTERTAINMENT",
+        floor_id=top.id if top else None,
+        zone_id=top_zone.id if top_zone else None,
+    )
+
+    # Reference topology only. Distances and turns are indicative until ICM supplies
+    # an authorized current floor plan or ENESKO completes a measured site survey.
+    _upsert_reference_edge(
+        db,
+        start=entrance2,
+        end=concourse,
+        distance_m=25.0,
+        instruction="Proceed from Entrance 2 toward the main concourse.",
+    )
+    _upsert_reference_edge(
+        db,
+        start=concourse,
+        end=samsung,
+        distance_m=18.0,
+        instruction="Continue from the main concourse toward the Samsung Experience Store.",
+    )
+    _upsert_reference_edge(
+        db,
+        start=entrance1,
+        end=atrium,
+        distance_m=22.0,
+        instruction="Proceed from Entrance 1 toward the central atrium reference area.",
+    )
+    _upsert_reference_edge(
+        db,
+        start=atrium,
+        end=concourse,
+        distance_m=20.0,
+        instruction="Continue from the atrium reference area toward the main concourse.",
+    )
+    _upsert_reference_edge(
+        db,
+        start=entrance3,
+        end=vertical_ground,
+        distance_m=16.0,
+        instruction="Proceed from the food-court-side entrance toward the escalator and elevator core.",
+    )
+    _upsert_reference_edge(
+        db,
+        start=concourse,
+        end=vertical_ground,
+        distance_m=18.0,
+        instruction="Continue from the main concourse toward the escalator and elevator core.",
+    )
+    _upsert_reference_edge(
+        db,
+        start=vertical_ground,
+        end=vertical_top,
+        distance_m=12.0,
+        instruction="Use the elevator for an accessible route to the top floor.",
+        accessible=True,
+    )
+    _upsert_reference_edge(
+        db,
+        start=vertical_top,
+        end=top_concourse,
+        distance_m=10.0,
+        instruction="Exit the vertical circulation core into the top-floor concourse.",
+    )
+    _upsert_reference_edge(
+        db,
+        start=top_concourse,
+        end=food_court,
+        distance_m=16.0,
+        instruction="Continue along the top-floor reference concourse toward the food court.",
+    )
+
+    for node, distance, instruction in (
+        (miniso, 14.0, "Continue from the main concourse toward the Miniso reference position."),
+        (istore, 24.0, "Continue along the ground-floor reference concourse toward iStore."),
+        (pointek, 12.0, "Continue along the ground-floor reference concourse toward Pointek."),
+        (healthplus, 13.0, "Continue along the ground-floor reference concourse toward HealthPlus."),
+        (ruff, 19.0, "Continue along the ground-floor reference concourse toward Ruff 'n' Tumble."),
+        (studio24, 20.0, "Continue along the Entrance 2 reference corridor toward Studio24."),
+    ):
+        _upsert_reference_edge(
+            db,
+            start=concourse,
+            end=node,
+            distance_m=distance,
+            instruction=instruction,
+        )
+
+    _upsert_reference_edge(
+        db,
+        start=top_concourse,
+        end=ocean,
+        distance_m=15.0,
+        instruction="Continue along the top-floor reference concourse toward Ocean Basket.",
+    )
+    _upsert_reference_edge(
+        db,
+        start=top_concourse,
+        end=silverbird,
+        distance_m=22.0,
+        instruction="Continue along the top-floor reference concourse toward Silverbird Cinemas.",
+    )
 
     db.commit()
 
