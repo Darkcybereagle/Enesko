@@ -29,10 +29,29 @@ SEARCH_SYNONYMS = {
     "sneakers": {"shoes", "footwear", "trainers"},
     "trainer": {"shoe", "footwear", "sneaker"},
     "trainers": {"shoes", "footwear", "sneakers"},
+    "sport": {"sports", "fitness"},
+    "sports": {"sport", "fitness"},
     "phone": {"phones", "smartphone", "mobile"},
     "phones": {"phone", "smartphones", "mobile"},
     "clothes": {"clothing", "apparel", "fashion"},
     "clothing": {"clothes", "apparel", "fashion"},
+    "eat": {"food", "restaurant", "dining", "meal", "meals"},
+    "food": {"restaurant", "dining", "meal", "meals"},
+    "meal": {"food", "restaurant", "dining"},
+    "meals": {"food", "restaurant", "dining"},
+    "water": {"drink", "drinks", "beverage", "beverages", "groceries", "supermarket"},
+    "drink": {"drinks", "beverage", "beverages", "groceries"},
+    "drinks": {"drink", "beverage", "beverages", "groceries"},
+    "medicine": {"pharmacy", "health", "medicines"},
+    "medicines": {"pharmacy", "health", "medicine"},
+    "perfume": {"fragrance", "beauty"},
+    "fragrance": {"perfume", "beauty"},
+    "makeup": {"cosmetics", "beauty"},
+    "cosmetics": {"makeup", "beauty"},
+    "watch": {"watches", "accessories"},
+    "watches": {"watch", "accessories"},
+    "gift": {"gifts", "lifestyle"},
+    "gifts": {"gift", "lifestyle"},
 }
 
 
@@ -92,6 +111,150 @@ def search_stores(db: Session, query: str) -> list[Store]:
     return [store for points, store in ranked if points > 0][:5]
 
 
+def _shopping_need_clauses(message: str) -> list[str]:
+    folded = _fold_text(message)
+    parts = re.split(r"\b(?:and|then|also|plus|after that|next)\b|[,;]", folded)
+    cleaned: list[str] = []
+    for part in parts:
+        clause = re.sub(
+            r"\b(?:i|we|want|need|would like|like|to|buy|get|find|where can|where do|please|can you)\b",
+            " ",
+            part,
+        )
+        clause = " ".join(clause.split()).strip(" .?!")
+        if len(_tokens(clause, min_len=2)) == 0:
+            continue
+        if clause not in cleaned:
+            cleaned.append(clause)
+    return cleaned[:6]
+
+
+def _store_payload(store: Store) -> dict:
+    return {
+        "id": store.id,
+        "name": store.name,
+        "unit": store.unit,
+        "floor_id": store.floor_id,
+        "zone_id": store.zone_id,
+        "nearest_landmark": store.nearest_landmark,
+        "opening_hours": store.opening_hours,
+        "categories": [category.name for category in store.categories],
+        "data_status": store.data_status,
+        "source_name": store.source_name,
+        "verified_at": store.verified_at,
+        "expires_at": store.expires_at,
+        "map_node_code": store.map_node_code,
+        "verification_confidence": store.verification_confidence,
+        "location_confidence": store.location_confidence,
+    }
+
+
+def _route_distance(db: Session, start_code: str, end_code: str) -> float | None:
+    from app.phase4 import calculate_route
+
+    try:
+        return calculate_route(
+            db,
+            start_code,
+            end_code,
+            accessible_only=True,
+        )["total_distance_m"]
+    except Exception:
+        return None
+
+
+def build_shopping_plan(db: Session, message: str) -> dict | None:
+    needs = _shopping_need_clauses(message)
+    if len(needs) < 2:
+        return None
+
+    plan = []
+    for need in needs:
+        stores = search_stores(db, need)
+        if not stores:
+            plan.append(
+                {
+                    "need": need,
+                    "recommended_store": None,
+                    "alternatives": [],
+                    "proximity_status": "NO_MATCH",
+                    "distance_from_start_m": None,
+                }
+            )
+            continue
+
+        candidates = stores[:4]
+        recommended = candidates[0]
+        mapped_candidates = [store for store in candidates if store.map_node_code]
+        mapped_with_distance = []
+        for store in mapped_candidates:
+            distance = _route_distance(db, "ICM-ENTRANCE-2", store.map_node_code)
+            if distance is not None:
+                mapped_with_distance.append((distance, store))
+
+        proximity_status = "CATALOG_ONLY"
+        distance_from_start = None
+        if recommended.map_node_code:
+            distance_from_start = _route_distance(
+                db,
+                "ICM-ENTRANCE-2",
+                recommended.map_node_code,
+            )
+            if distance_from_start is not None:
+                proximity_status = "ROUTE_VERIFIED_REFERENCE"
+        elif mapped_with_distance:
+            proximity_status = "RELEVANCE_FIRST_PARTIAL_MAP"
+
+        plan.append(
+            {
+                "need": need,
+                "recommended_store": _store_payload(recommended),
+                "alternatives": [
+                    _store_payload(store)
+                    for store in candidates[1:]
+                ],
+                "proximity_status": proximity_status,
+                "distance_from_start_m": distance_from_start,
+            }
+        )
+
+    if sum(1 for item in plan if item["recommended_store"]) < 2:
+        return None
+
+    mapped_stops = [
+        item
+        for item in plan
+        if item["recommended_store"]
+        and item["recommended_store"]["map_node_code"]
+        and item["distance_from_start_m"] is not None
+    ]
+    mapped_stops.sort(key=lambda item: item["distance_from_start_m"])
+
+    unmapped_stops = [
+        item
+        for item in plan
+        if item["recommended_store"]
+        and item not in mapped_stops
+    ]
+    unresolved = [item for item in plan if not item["recommended_store"]]
+
+    ordered = mapped_stops + unmapped_stops + unresolved
+    for index, item in enumerate(ordered, start=1):
+        item["suggested_order"] = index
+
+    exact_proximity = len(unmapped_stops) == 0 and len(unresolved) == 0
+    return {
+        "needs": ordered,
+        "start_node": "ICM-ENTRANCE-2",
+        "proximity_basis": (
+            "REFERENCE_ROUTE_DISTANCE"
+            if exact_proximity
+            else "PARTIAL_REFERENCE_ROUTE_PLUS_RELEVANCE"
+        ),
+        "exact_proximity_order": exact_proximity,
+    }
+
+
 def find_knowledge(db: Session, query: str) -> list[KnowledgeDocument]:
     tokens = _tokens(query, min_len=4)
     if not tokens:
@@ -144,6 +307,14 @@ def detect_language(message: str) -> str:
 
 def classify_intent(message: str) -> str:
     text = _fold_text(message)
+    if len(_shopping_need_clauses(message)) >= 2 and any(
+        term in text
+        for term in (
+            "buy", "get", "eat", "food", "water", "drink", "shoe", "shoes",
+            "medicine", "perfume", "makeup", "phone", "clothes", "gift",
+        )
+    ):
+        return "shopping_plan"
     if any(term in text for term in (
         "human", "customer care", "customer service", "speak to someone", "agent",
         "iranlowo eniyan", "ba eniyan soro", "so mi po mo eniyan",
@@ -170,6 +341,46 @@ def classify_intent(message: str) -> str:
 
 def _orchestrate_base(db: Session, message: str) -> dict:
     intent = classify_intent(message)
+
+    if intent == "shopping_plan":
+        plan = build_shopping_plan(db, message)
+        if plan:
+            need_lines = []
+            for item in plan["needs"]:
+                store = item["recommended_store"]
+                if not store:
+                    need_lines.append(
+                        f"For {item['need']}, I do not yet have a verified matching store."
+                    )
+                    continue
+
+                alternatives = item["alternatives"]
+                line = f"For {item['need']}, I recommend {store['name']}"
+                if alternatives:
+                    names = ", ".join(option["name"] for option in alternatives[:2])
+                    line += f"; alternatives include {names}"
+                line += "."
+                need_lines.append(line)
+
+            if plan["exact_proximity_order"]:
+                order_note = (
+                    "I ordered these stops using the current ENESKO reference-route distances "
+                    "from Entrance 2."
+                )
+            else:
+                order_note = (
+                    "I can suggest the shopping sequence, but some recommended stores are not yet "
+                    "mapped precisely enough for a fully verified proximity order. Mapped stops are "
+                    "ordered by ENESKO reference-route distance; unmapped stops remain relevance-based."
+                )
+
+            return {
+                "answer": " ".join(need_lines) + " " + order_note,
+                "intent": intent,
+                "needs_human": False,
+                "sources": [],
+                "data": {"shopping_plan": plan},
+            }
 
     if intent == "human_handoff":
         return {
@@ -489,6 +700,30 @@ def _localize_yoruba(result: dict) -> dict:
                 "Mo rí ìtàn ibi náà, ṣùgbọ́n ibi náà kò tíì ní node maapu ENESKO. "
                 "Mi ò ní dá ọ̀nà tí a kò fọwọ́sí sílẹ̀."
             )
+    elif intent == "shopping_plan":
+        plan = data.get("shopping_plan") or {}
+        items = plan.get("needs") or []
+        pieces = []
+        for item in items:
+            store = item.get("recommended_store")
+            if store:
+                pieces.append(
+                    f"Fún {item.get('need')}, mo ṣeduro {store.get('name')}."
+                )
+            else:
+                pieces.append(
+                    f"Fún {item.get('need')}, mi ò tíì ní ṣọ́ọ̀bù tí a fọwọ́sí."
+                )
+        if plan.get("exact_proximity_order"):
+            pieces.append(
+                "Mo ṣètò àwọn ibi náà gẹ́gẹ́ bí ìjìnnà reference route láti Entrance 2."
+            )
+        else:
+            pieces.append(
+                "Diẹ̀ ninu àwọn ibi náà kò tíì ni maapu pipe, nítorí náà mo lo ipa-ọ̀nà "
+                "reference fún àwọn tí a ti map, mo sì lo ibamu ọja fún àwọn iyókù."
+            )
+        answer = " ".join(pieces)
     elif intent == "store_search":
         stores = data.get("stores") or []
         if stores:
