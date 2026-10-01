@@ -43,6 +43,7 @@ def assistant_capabilities():
         "channels": ["web", "voice", "whatsapp", "email"],
         "tools": [
             "store_search",
+            "multi_need_shopping_planner",
             "knowledge_retrieval",
             "cinema_lookup",
             "parking_lookup",
