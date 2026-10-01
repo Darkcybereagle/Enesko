@@ -405,8 +405,13 @@ def _orchestrate_base(db: Session, message: str) -> dict:
                     "ordered by ENESKO reference-route distance; unmapped stops remain relevance-based."
                 )
 
+            stock_note = (
+                "These recommendations are based on the verified ENESKO store catalog and product categories; "
+                "they do not confirm live shelf stock unless a tenant inventory integration is connected."
+            )
+
             return {
-                "answer": " ".join(need_lines) + " " + order_note,
+                "answer": " ".join(need_lines) + " " + order_note + " " + stock_note,
                 "intent": intent,
                 "needs_human": False,
                 "sources": [],
