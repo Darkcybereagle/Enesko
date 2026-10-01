@@ -155,16 +155,25 @@ export default function Home() {
     }
   }
 
+  function speechSafeText(
+    text: string,
+    language: "en-NG" | "yo-NG",
+    hasExactLocaleVoice: boolean
+  ) {
+    let spoken = text.replace(/\bENESKO\b/g, "Enesko");
+
+    if (language === "en-NG" && !hasExactLocaleVoice) {
+      spoken = spoken.replace(/\bIkeja\b/gi, "Ee-keh-jah");
+    }
+
+    return spoken;
+  }
+
   function speak(text: string, language: "en-NG" | "yo-NG" = voiceLanguage) {
     if (!("speechSynthesis" in window)) return;
 
     const synth = window.speechSynthesis;
     synth.cancel();
-
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = language;
-    utterance.rate = 0.98;
-    utterance.pitch = 1;
 
     const voices = synth.getVoices();
     const exact = voices.filter((voice) => voice.lang.toLowerCase() === language.toLowerCase());
@@ -174,6 +183,13 @@ export default function Home() {
     const englishFallback = voices.filter((voice) => voice.lang.toLowerCase().startsWith("en"));
     const candidates =
       exact.length > 0 ? exact : sameLanguage.length > 0 ? sameLanguage : englishFallback;
+
+    const utterance = new SpeechSynthesisUtterance(
+      speechSafeText(text, language, exact.length > 0)
+    );
+    utterance.lang = language;
+    utterance.rate = 0.98;
+    utterance.pitch = 1;
 
     if (candidates.length > 0) {
       utterance.voice = candidates[voiceRotation % candidates.length];
