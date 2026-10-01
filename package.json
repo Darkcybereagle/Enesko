@@ -1,1 +1,23 @@
-{"name":"enesko-platform","private":true,"workspaces":["apps/*"],"scripts":{"build":"npm run build --workspaces --if-present","dev:customer":"npm run dev --workspace customer-web","dev:admin":"npm run dev --workspace admin-dashboard","dev:tenant":"npm run dev --workspace tenant-portal"},"devDependencies":{"@types/node":"22.15.3","@types/react":"19.1.2","@types/react-dom":"19.1.2","autoprefixer":"10.4.21","postcss":"8.5.6","tailwindcss":"3.4.17","typescript":"5.8.3"}}
+{
+  "name": "enesko-platform",
+  "private": true,
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "dev:customer": "npm run dev --workspace customer-web",
+    "dev:admin": "npm run dev --workspace admin-dashboard",
+    "dev:tenant": "npm run dev --workspace tenant-portal",
+    "dev:customer:lan": "npm run dev:lan --workspace customer-web"
+  },
+  "devDependencies": {
+    "@types/node": "22.15.3",
+    "@types/react": "19.1.2",
+    "@types/react-dom": "19.1.2",
+    "autoprefixer": "10.4.21",
+    "postcss": "8.5.6",
+    "tailwindcss": "3.4.17",
+    "typescript": "5.8.3"
+  }
+}
