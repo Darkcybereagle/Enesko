@@ -84,6 +84,9 @@ export default function Home() {
   const [voiceState, setVoiceState] = useState<"ready" | "listening" | "thinking">("ready");
   const [voiceMessages, setVoiceMessages] = useState<Array<{ role: "user" | "assistant"; text: string }>>([]);
   const [speechSupported, setSpeechSupported] = useState(true);
+  const [shareOrigin, setShareOrigin] = useState("");
+  const [phoneAccessOpen, setPhoneAccessOpen] = useState(false);
+  const [voicePermission, setVoicePermission] = useState<"unknown" | "granted" | "denied">("unknown");
 
   useEffect(() => {
     const saved = window.localStorage.getItem("enesko-theme");
@@ -94,6 +97,10 @@ export default function Home() {
           ? "light"
           : "dark";
     setTheme(next);
+    setShareOrigin(window.location.origin);
+    const SpeechRecognition =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    setSpeechSupported(Boolean(SpeechRecognition));
   }, []);
 
   useEffect(() => {
@@ -192,13 +199,47 @@ export default function Home() {
     }
   }
 
-  function beginListening() {
+  async function beginListening() {
+    setNotice("");
+
+    if (!window.isSecureContext) {
+      setNotice(
+        "Phone microphone access needs a secure HTTPS ENESKO link. Open the secure mobile link or QR code, then allow microphone access."
+      );
+      setPhoneAccessOpen(true);
+      return;
+    }
+
     const SpeechRecognition =
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
       setSpeechSupported(false);
-      setNotice("Speech recognition is not available in this browser. You can still type below.");
+      setNotice(
+        "Speech recognition is not supported by this browser. Try current Chrome on Android, or use the text box."
+      );
+      return;
+    }
+
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setNotice("This browser cannot access a microphone in the current context. Use the secure HTTPS link.");
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach((track) => track.stop());
+      setVoicePermission("granted");
+    } catch (error: any) {
+      setVoicePermission("denied");
+      const name = error?.name || "";
+      if (name === "NotAllowedError" || name === "SecurityError") {
+        setNotice("Microphone permission is blocked. Allow microphone access for ENESKO in your browser settings and tap Speak again.");
+      } else if (name === "NotFoundError") {
+        setNotice("No usable microphone was found on this device.");
+      } else {
+        setNotice("ENESKO could not access this device's microphone. You can still type your request.");
+      }
       return;
     }
 
@@ -209,9 +250,21 @@ export default function Home() {
     recognition.continuous = false;
 
     recognition.onstart = () => setVoiceState("listening");
-    recognition.onerror = () => {
+    recognition.onerror = (event: any) => {
       setVoiceState("ready");
-      setNotice("I could not hear that clearly. Try again or type your request.");
+      const code = event?.error || "unknown";
+      if (code === "no-speech") {
+        setNotice("No speech was detected. Tap Speak and talk after the Listening state appears.");
+      } else if (code === "not-allowed" || code === "service-not-allowed") {
+        setVoicePermission("denied");
+        setNotice("Microphone or speech recognition permission is blocked for this site.");
+      } else if (code === "audio-capture") {
+        setNotice("The browser could not capture audio from this microphone.");
+      } else if (code === "network") {
+        setNotice("The browser speech service could not connect. Type your request or try again with internet access.");
+      } else {
+        setNotice(`Speech recognition stopped (${code}). Try again or type your request.`);
+      }
     };
     recognition.onend = () => {
       setVoiceState((current) => (current === "thinking" ? current : "ready"));
@@ -430,6 +483,14 @@ export default function Home() {
           <button
             className="themeToggle"
             type="button"
+            onClick={() => setPhoneAccessOpen(true)}
+            aria-label="Open ENESKO on a phone"
+          >
+            Phone / QR
+          </button>
+          <button
+            className="themeToggle"
+            type="button"
             onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
             aria-label="Toggle light and dark mode"
           >
@@ -555,7 +616,13 @@ export default function Home() {
                 </p>
               </div>
               <span className="neutralBadge">
-                {speechSupported ? "Browser voice + ENESKO tools" : "Text fallback available"}
+                {!window?.isSecureContext
+                  ? "HTTPS required for phone mic"
+                  : speechSupported
+                    ? voicePermission === "granted"
+                      ? "Microphone ready"
+                      : "Browser voice + ENESKO tools"
+                    : "Text fallback available"}
               </span>
             </div>
 
@@ -874,6 +941,60 @@ export default function Home() {
               <button type="submit" disabled={loading}>Send to mall operations</button>
             </form>
           </section>
+        )}
+
+        {phoneAccessOpen && (
+          <div className="phoneAccessBackdrop" role="presentation" onClick={() => setPhoneAccessOpen(false)}>
+            <section
+              className="phoneAccessModal"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="phone-access-title"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <button
+                className="phoneAccessClose"
+                type="button"
+                onClick={() => setPhoneAccessOpen(false)}
+                aria-label="Close phone access"
+              >
+                ×
+              </button>
+              <span className="eyebrow">Open ENESKO on your phone</span>
+              <h2 id="phone-access-title">Scan and continue on mobile</h2>
+              <p>
+                Multiple phones can use the same ENESKO address. For microphone access on phones,
+                use an HTTPS address rather than a plain local-IP HTTP address.
+              </p>
+
+              {shareOrigin && (
+                <>
+                  <div className="qrFrame">
+                    <img
+                      src={`${API}/api/v1/access/qr.svg?url=${encodeURIComponent(shareOrigin)}`}
+                      alt="QR code for this ENESKO customer address"
+                    />
+                  </div>
+                  <code className="shareUrl">{shareOrigin}</code>
+                  <div className="buttonRow phoneButtons">
+                    <button
+                      className="secondaryAction"
+                      type="button"
+                      onClick={() => navigator.clipboard?.writeText(shareOrigin)}
+                    >
+                      Copy link
+                    </button>
+                  </div>
+                </>
+              )}
+
+              <p className="finePrint">
+                {typeof window !== "undefined" && window.isSecureContext
+                  ? "Secure context detected. Compatible browsers can request microphone permission."
+                  : "This current address is not a secure context. Browsing and typed ENESKO requests can still work, but phone microphone access may be blocked."}
+              </p>
+            </section>
+          </div>
         )}
 
         {caseRef && (
