@@ -63,7 +63,7 @@ def list_stores(
         )
     if category:
         stmt = stmt.join(Store.categories).where(Category.name.ilike(f"%{category}%"))
-    return list(db.scalars(stmt.order_by(Store.name)).unique().all())
+    return list(db.scalars(stmt.order_by(Store.discovery_priority.desc(), Store.name)).unique().all())
 
 
 @router.get("/stores/{store_id}", response_model=StoreOut, tags=["Mall Core"])
