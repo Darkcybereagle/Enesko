@@ -191,3 +191,45 @@ def test_category3_spoken_navigation_invokes_existing_route_engine(client):
     assert body["data"]["route"]["from_node"]=="ICM-ENTRANCE-2"
     assert body["data"]["route"]["to_node"]=="ICM-SAMSUNG"
     assert body["data"]["route"]["steps"]
+
+
+
+def test_yoruba_store_query_uses_same_verified_store_engine(client):
+    response=client.post(
+        "/api/v1/assistant/chat",
+        json={"message":"Nibo ni Samsung wa?","channel":"web"},
+    )
+    assert response.status_code==200
+    body=response.json()
+    assert body["language"]=="yo-NG"
+    assert body["intent"]=="store_search"
+    assert body["data"]["stores"][0]["name"]=="Samsung Experience Store"
+    assert "Samsung" in body["answer"]
+
+
+def test_yoruba_voice_navigation_preserves_existing_route_engine(client):
+    started=client.post(
+        "/api/v1/voice/sessions",
+        json={"provider":"BROWSER_SPEECH"},
+    )
+    ref=started.json()["session_ref"]
+
+    turn=client.post(
+        f"/api/v1/voice/sessions/{ref}/turn",
+        json={"text":"Mu mi lo si Samsung"},
+    )
+    assert turn.status_code==200
+    body=turn.json()
+    assert body["language"]=="yo-NG"
+    assert body["intent"]=="navigation"
+    assert body["data"]["route"]["from_node"]=="ICM-ENTRANCE-2"
+    assert body["data"]["route"]["to_node"]=="ICM-SAMSUNG"
+
+
+def test_english_voice_remains_default(client):
+    response=client.post(
+        "/api/v1/assistant/chat",
+        json={"message":"Where can I buy sports shoes?","channel":"web"},
+    )
+    assert response.status_code==200
+    assert response.json()["language"]=="en-NG"
