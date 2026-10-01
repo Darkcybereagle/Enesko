@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Table, Text, Column
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Table, Text, Column
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -66,6 +66,11 @@ class Store(Base):
     verified_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     map_node_code: Mapped[str | None] = mapped_column(String(80), nullable=True, index=True)
+    discovery_priority: Mapped[int] = mapped_column(Integer, default=50, index=True)
+    verification_confidence: Mapped[str] = mapped_column(String(20), default="MEDIUM")
+    location_confidence: Mapped[str] = mapped_column(String(30), default="UNMAPPED")
+    public_rating: Mapped[float | None] = mapped_column(Float, nullable=True)
+    public_review_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
     active: Mapped[bool] = mapped_column(Boolean, default=True)
     categories: Mapped[list["Category"]] = relationship(secondary=store_categories, back_populates="stores")
 
