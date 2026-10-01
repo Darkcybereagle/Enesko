@@ -102,6 +102,7 @@ class SourceRef(BaseModel):
 class ChatResponse(BaseModel):
     answer: str
     intent: str
+    language: str = "en-NG"
     needs_human: bool = False
     sources: list[SourceRef] = Field(default_factory=list)
     data: dict | None = None
