@@ -520,6 +520,44 @@ textarea:focus-visible {
   font-size: 17px;
 }
 
+.voiceLanguageSwitch {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 18px;
+}
+
+.voiceLanguageSwitch > span {
+  margin-right: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.voiceLanguageSwitch button {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--bg-soft);
+  color: var(--text);
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+.voiceLanguageSwitch button.active {
+  background: var(--accent);
+  color: var(--accent-ink);
+  border-color: transparent;
+}
+
+.voiceLanguageSwitch small {
+  flex-basis: 100%;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
 .voiceLayout {
   display: grid;
   grid-template-columns: minmax(300px, .82fr) minmax(0, 1.18fr);
