@@ -616,7 +616,7 @@ export default function Home() {
                 </p>
               </div>
               <span className="neutralBadge">
-                {!window?.isSecureContext
+                {typeof window !== "undefined" && !window.isSecureContext
                   ? "HTTPS required for phone mic"
                   : speechSupported
                     ? voicePermission === "granted"
