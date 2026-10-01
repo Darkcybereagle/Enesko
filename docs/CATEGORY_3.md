@@ -13,6 +13,7 @@ ENESKO uses one shared orchestration layer for web chat, browser voice, WhatsApp
 
 Current tools include:
 - store/product discovery;
+- multi-need shopping planning that separates different requested items/services, matches each need to relevant tenant options, and suggests a stop order using mapped ENESKO route distances where available;
 - verified knowledge retrieval;
 - cinema lookup;
 - parking lookup;
@@ -25,6 +26,12 @@ Current tools include:
 Answers are grounded in ENESKO operational records and verified knowledge documents. Expired knowledge is excluded. Operational truth comes from current database records, authorized staff updates or configured integrations. ENESKO must return an unavailable/unknown state rather than invent live facts.
 
 This release uses verified database retrieval and deterministic tool routing. A future external model or embedding provider can be added behind this layer without changing the operational source-of-truth rules.
+
+
+### Multi-need shopping missions
+A customer does not need to know tenant names. ENESKO searches verified store names, descriptions and categories for each requested need. For example, a request such as `I want to buy sport shoe and want to eat then buy water` is split into separate shopping needs, relevant stores are proposed for each need, alternatives are returned, and mapped stops are ordered using a nearest-next-stop heuristic over the existing ENESKO indoor route graph.
+
+When one or more recommended stores are not mapped, ENESKO explicitly marks the sequence as partial rather than inventing a proximity ranking. Store/category matches also do not imply live shelf inventory; exact stock claims require an authorized tenant inventory/POS integration.
 
 ### 3.3 — Voice concierge
 The Customer Web app includes an ENESKO-branded voice interface:
