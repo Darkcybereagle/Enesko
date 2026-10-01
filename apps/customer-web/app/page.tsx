@@ -96,6 +96,8 @@ export default function Home() {
   const [shareOrigin, setShareOrigin] = useState("");
   const [phoneAccessOpen, setPhoneAccessOpen] = useState(false);
   const [voicePermission, setVoicePermission] = useState<"unknown" | "granted" | "denied">("unknown");
+  const [voiceLanguage, setVoiceLanguage] = useState<"en-NG" | "yo-NG">("en-NG");
+  const [voiceRotation, setVoiceRotation] = useState(0);
 
   useEffect(() => {
     const saved = window.localStorage.getItem("enesko-theme");
@@ -153,13 +155,55 @@ export default function Home() {
     }
   }
 
-  function speak(text: string) {
+  function speak(text: string, language: "en-NG" | "yo-NG" = voiceLanguage) {
     if (!("speechSynthesis" in window)) return;
-    window.speechSynthesis.cancel();
+
+    const synth = window.speechSynthesis;
+    synth.cancel();
+
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = "en-NG";
-    utterance.rate = 1;
-    window.speechSynthesis.speak(utterance);
+    utterance.lang = language;
+    utterance.rate = 0.98;
+    utterance.pitch = 1;
+
+    const voices = synth.getVoices();
+    const exact = voices.filter((voice) => voice.lang.toLowerCase() === language.toLowerCase());
+    const sameLanguage = voices.filter((voice) =>
+      voice.lang.toLowerCase().startsWith(language.slice(0, 2).toLowerCase())
+    );
+    const englishFallback = voices.filter((voice) => voice.lang.toLowerCase().startsWith("en"));
+    const candidates =
+      exact.length > 0 ? exact : sameLanguage.length > 0 ? sameLanguage : englishFallback;
+
+    if (candidates.length > 0) {
+      utterance.voice = candidates[voiceRotation % candidates.length];
+      setVoiceRotation((current) => current + 1);
+    }
+
+    synth.speak(utterance);
+  }
+
+  function welcomeMessage(language: "en-NG" | "yo-NG") {
+    if (language === "yo-NG") {
+      return "Ẹ kú àbọ̀ sí Ikeja City Mall. Èmi ni ENESKO, olùrànlọ́wọ́ rẹ ní inú mall. Mo lè ràn ọ́ lọ́wọ́ láti rí ṣọ́ọ̀bù, tọ́ ọ́nà, ṣàyẹ̀wò ibi ìdákọ̀ ọkọ àti sinimá, tàbí bá ẹ so pọ̀ mọ́ iṣẹ́ mall. Kí ni mo lè ṣe fún ọ lónìí?";
+    }
+    return "Welcome to Ikeja City Mall. I’m ENESKO, your mall concierge. I can help you find stores, navigate the mall, check parking and cinema information, or connect you to mall operations. How can I help you today?";
+  }
+
+  function announceWelcome(language: "en-NG" | "yo-NG") {
+    const greeting = welcomeMessage(language);
+    setVoiceMessages([{ role: "assistant", text: greeting }]);
+    speak(greeting, language);
+  }
+
+  function chooseVoiceLanguage(language: "en-NG" | "yo-NG") {
+    setVoiceLanguage(language);
+    if (
+      voiceMessages.length === 0 ||
+      (voiceMessages.length === 1 && voiceMessages[0].role === "assistant")
+    ) {
+      announceWelcome(language);
+    }
   }
 
   async function ensureVoiceSession() {
@@ -199,8 +243,11 @@ export default function Home() {
       );
       const body = await readJson(response, "Voice concierge");
       const reply = body.answer || "I could not produce a response.";
+      const responseLanguage: "en-NG" | "yo-NG" =
+        body.language === "yo-NG" ? "yo-NG" : "en-NG";
+      setVoiceLanguage(responseLanguage);
       setVoiceMessages((current) => [...current, { role: "assistant", text: reply }]);
-      speak(reply);
+      speak(reply, responseLanguage);
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "Voice concierge is unavailable.");
     } finally {
@@ -254,7 +301,7 @@ export default function Home() {
 
     setSpeechSupported(true);
     const recognition = new SpeechRecognition();
-    recognition.lang = "en-NG";
+    recognition.lang = voiceLanguage;
     recognition.interimResults = false;
     recognition.continuous = false;
 
@@ -388,6 +435,9 @@ export default function Home() {
 
     if (next === "voice") {
       setVoiceState("ready");
+      if (voiceMessages.length === 0) {
+        announceWelcome(voiceLanguage);
+      }
     }
     if (next === "stores" && stores.length === 0) await loadStores();
     if (next === "cinema" && !cinema) await loadCinema();
@@ -633,6 +683,27 @@ export default function Home() {
                       : "Browser voice + ENESKO tools"
                     : "Text fallback available"}
               </span>
+            </div>
+
+            <div className="voiceLanguageSwitch" aria-label="Voice language">
+              <span>Voice language</span>
+              <button
+                type="button"
+                className={voiceLanguage === "en-NG" ? "active" : ""}
+                onClick={() => chooseVoiceLanguage("en-NG")}
+              >
+                English
+              </button>
+              <button
+                type="button"
+                className={voiceLanguage === "yo-NG" ? "active" : ""}
+                onClick={() => chooseVoiceLanguage("yo-NG")}
+              >
+                Yorùbá
+              </button>
+              <small>
+                Typed Yorùbá is detected automatically. Choose Yorùbá before speaking for reliable speech recognition.
+              </small>
             </div>
 
             <div className="voiceLayout">
