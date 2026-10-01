@@ -1,4 +1,5 @@
 import re
+import unicodedata
 from datetime import datetime
 
 from sqlalchemy import or_, select
@@ -12,7 +13,14 @@ STOP_WORDS = {
     "about", "could", "would", "please", "mall", "find", "store", "shop",
     "want", "need", "have", "does", "your", "their", "right", "now", "can", "buy",
     "take", "navigate", "navigation", "direction", "directions", "get",
+    "nibo", "ibo", "ninu", "fun", "pelu", "lati", "si", "ni", "wa", "mo", "fe",
+    "je", "se", "ki", "mi", "yin", "re",
 }
+
+
+def _fold_text(text: str) -> str:
+    normalized = unicodedata.normalize("NFKD", text.lower())
+    return "".join(char for char in normalized if not unicodedata.combining(char))
 
 SEARCH_SYNONYMS = {
     "shoe": {"footwear", "sneaker", "trainer"},
@@ -30,7 +38,7 @@ SEARCH_SYNONYMS = {
 
 def _tokens(text: str, min_len: int = 3) -> list[str]:
     return [
-        token for token in re.findall(r"[a-z0-9]+", text.lower())
+        token for token in re.findall(r"[a-z0-9]+", _fold_text(text))
         if len(token) >= min_len and token not in STOP_WORDS
     ]
 
@@ -109,24 +117,58 @@ def find_knowledge(db: Session, query: str) -> list[KnowledgeDocument]:
     return [doc for doc in docs if doc.expires_at is None or doc.expires_at >= now]
 
 
+YORUBA_MARKERS = {
+    "nibo", "ibo", "bata", "foonu", "ounje", "sinima", "fiimu", "paaki",
+    "padanu", "sonu", "soobu", "iranlowo", "dari", "oko", "ra",
+}
+
+
+def detect_language(message: str) -> str:
+    raw = message.lower()
+    folded = _fold_text(message)
+    tokens = set(re.findall(r"[a-z0-9]+", folded))
+    if any(char in raw for char in ("ẹ", "ọ", "ṣ")):
+        return "yo-NG"
+    if tokens.intersection(YORUBA_MARKERS):
+        return "yo-NG"
+    if any(
+        phrase in folded
+        for phrase in (
+            "mo fe", "mu mi lo si", "dari mi lo si", "ona si",
+            "nibo ni", "ibo ni", "mo padanu", "mo sonu",
+        )
+    ):
+        return "yo-NG"
+    return "en-NG"
+
+
 def classify_intent(message: str) -> str:
-    text = message.lower()
-    if any(term in text for term in ("human", "customer care", "customer service", "speak to someone", "agent")):
+    text = _fold_text(message)
+    if any(term in text for term in (
+        "human", "customer care", "customer service", "speak to someone", "agent",
+        "iranlowo eniyan", "ba eniyan soro", "so mi po mo eniyan",
+    )):
         return "human_handoff"
-    if any(term in text for term in ("lost", "missing", "misplaced")):
+    if any(term in text for term in ("lost", "missing", "misplaced", "padanu", "sonu")):
         return "lost_found"
-    if any(term in text for term in ("movie", "cinema", "showtime", "film showing", "films showing")):
+    if any(term in text for term in ("movie", "cinema", "showtime", "film showing", "films showing", "sinima", "fiimu")):
         return "cinema"
-    if any(term in text for term in ("parking", "park my car", "parking space")):
+    if any(term in text for term in ("parking", "park my car", "parking space", "paaki", "ibi idako", "pa oko")):
         return "parking"
-    if any(term in text for term in ("take me to", "navigate to", "directions to", "how do i get to", "guide me to")):
+    if any(term in text for term in (
+        "take me to", "navigate to", "directions to", "how do i get to", "guide me to",
+        "mu mi lo si", "dari mi lo si", "ona si",
+    )):
         return "navigation"
-    if any(term in text for term in ("where is", "where can i", "find", "buy", "store", "shop", "restaurant")):
+    if any(term in text for term in (
+        "where is", "where can i", "find", "buy", "store", "shop", "restaurant",
+        "nibo ni", "ibo ni", "ra", "soobu", "ounje",
+    )):
         return "store_search"
     return "knowledge_query"
 
 
-def orchestrate(db: Session, message: str) -> dict:
+def _orchestrate_base(db: Session, message: str) -> dict:
     intent = classify_intent(message)
 
     if intent == "human_handoff":
@@ -385,3 +427,104 @@ def orchestrate(db: Session, message: str) -> dict:
         "sources": [],
         "data": None,
     }
+
+
+
+def _localize_yoruba(result: dict) -> dict:
+    intent = result.get("intent", "unknown")
+    data = result.get("data") or {}
+
+    if intent == "human_handoff":
+        answer = (
+            "Mo lè dá ìbéèrè ìrànlọ́wọ́ sílẹ̀ fún ẹgbẹ́ iṣẹ́ Ikeja City Mall "
+            "kí òṣìṣẹ́ ènìyàn lè tẹ̀síwájú pẹ̀lú rẹ."
+        )
+    elif intent == "lost_found":
+        answer = (
+            "Mo lè bẹ̀rẹ̀ ìròyìn nkan tí ó sọnù. Sọ ohun tí ó sọnù, àwọ̀ tàbí àmì rẹ, "
+            "ibi tí o ti rí i kẹ́yìn, àkókò tó ṣẹlẹ̀ àti ọ̀nà ìbánisọ̀rọ̀. "
+            "Òṣìṣẹ́ mall gbọdọ̀ jẹ́rìí ohun náà kí wọ́n tó fi í sílẹ̀."
+        )
+    elif intent == "parking":
+        status = data.get("status")
+        if status:
+            readable = str(status).replace("_", " ").title()
+            answer = (
+                f"Ipo ibi ìdákọ̀ ọkọ tí òṣìṣẹ́ fọwọ́sí báyìí ni {readable}. "
+                "Ikeja City Mall tún sọ pé ó ní ju ibi ìdákọ̀ ọkọ 700 lọ."
+            )
+        else:
+            answer = (
+                "Ikeja City Mall sọ pé ó ní ju ibi ìdákọ̀ ọkọ 700 lọ, ṣùgbọ́n ENESKO "
+                "kò ní ipo ìdákọ̀ ọkọ tuntun tí a fọwọ́sí ní báyìí. Mi ò ní ṣe àfojúsùn."
+            )
+    elif intent == "cinema":
+        shows = data.get("shows") or []
+        if shows:
+            summary = "; ".join(
+                f"{show.get('movie_title')}: {show.get('show_time')}"
+                for show in shows[:4]
+            )
+            answer = (
+                f"Àwọn ìfihàn sinimá tí ENESKO ní báyìí ni: {summary}. "
+                "Jọ̀wọ́ lo iṣẹ́ ìfipamọ́ Silverbird láti jẹ́rìí ijoko àti àkókò ikẹhin."
+            )
+        else:
+            answer = (
+                "Silverbird Cinemas wà ní Ikeja City Mall, ṣùgbọ́n ENESKO kò ní "
+                "àkókò ìfihàn tuntun tí a fọwọ́sí ní báyìí. Mi ò ní dá àkókò sílẹ̀ láìsí ẹ̀rí."
+            )
+    elif intent == "navigation":
+        store = data.get("store") or {}
+        route = data.get("route") or {}
+        name = store.get("name")
+        if name and route:
+            answer = (
+                f"Mo ti rí {name}. Bẹ̀rẹ̀ láti Entrance 2 kí o sì tẹ̀lé ipa-ọ̀nà ENESKO "
+                "tí ó hàn lórí iboju. Ọ̀nà yìí ṣì jẹ́ reference route títí tí a ó fi "
+                "gba floor plan Ikeja City Mall tí a fọwọ́sí."
+            )
+        else:
+            answer = (
+                "Mo rí ìtàn ibi náà, ṣùgbọ́n ibi náà kò tíì ní node maapu ENESKO. "
+                "Mi ò ní dá ọ̀nà tí a kò fọwọ́sí sílẹ̀."
+            )
+    elif intent == "store_search":
+        stores = data.get("stores") or []
+        if stores:
+            first = stores[0]
+            answer = f"Mo rí {first.get('name')}."
+            if first.get("unit"):
+                answer += f" Unit rẹ̀ ni {first.get('unit')}."
+            if first.get("nearest_landmark"):
+                answer += f" Ó wà nítòsí {first.get('nearest_landmark')}."
+            if first.get("map_node_code"):
+                answer += " ENESKO ní reference route sí ibi yìí."
+        else:
+            answer = "Mi ò rí ṣọ́ọ̀bù tó bá ìbéèrè yẹn mu nínú data tí a fọwọ́sí."
+    elif intent == "knowledge_query" and result.get("answer"):
+        answer = (
+            "Mo rí ìmọ̀ tí a fọwọ́sí lórí ìbéèrè yìí. "
+            f"Àkọsílẹ̀ orísun ni: {result['answer']}"
+        )
+    else:
+        answer = (
+            "Mi ò ní orísun tuntun tí a fọwọ́sí fún ìbéèrè yẹn, nítorí náà mi ò ní ṣe àfojúsùn. "
+            "O lè ní kí ENESKO dá ìbéèrè ìrànlọ́wọ́ sílẹ̀ fún ẹgbẹ́ mall."
+        )
+
+    localized = dict(result)
+    localized["answer"] = answer
+    localized["language"] = "yo-NG"
+    return localized
+
+
+def orchestrate(db: Session, message: str) -> dict:
+    language = detect_language(message)
+    result = _orchestrate_base(db, message)
+    if language == "yo-NG":
+        return _localize_yoruba(result)
+
+    result = dict(result)
+    result["language"] = "en-NG"
+    return result
