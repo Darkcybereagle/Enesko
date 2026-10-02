@@ -1,8 +1,9 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "/backend";
+const PUBLIC_APP_URL = process.env.NEXT_PUBLIC_PUBLIC_APP_URL || "";
 
 type Section = "home" | "voice" | "stores" | "cinema" | "parking" | "navigate" | "lost" | "help";
 
@@ -90,7 +91,7 @@ export default function Home() {
   const [notice, setNotice] = useState("");
   const [voiceSessionRef, setVoiceSessionRef] = useState("");
   const [voiceInput, setVoiceInput] = useState("");
-  const [voiceState, setVoiceState] = useState<"ready" | "listening" | "thinking">("ready");
+  const [voiceState, setVoiceState] = useState<"ready" | "listening" | "thinking" | "speaking" | "paused">("ready");
   const [voiceMessages, setVoiceMessages] = useState<Array<{ role: "user" | "assistant"; text: string }>>([]);
   const [speechSupported, setSpeechSupported] = useState(true);
   const [shareOrigin, setShareOrigin] = useState("");
@@ -98,6 +99,10 @@ export default function Home() {
   const [voicePermission, setVoicePermission] = useState<"unknown" | "granted" | "denied">("unknown");
   const [voiceLanguage, setVoiceLanguage] = useState<"en-NG" | "yo-NG">("en-NG");
   const [voiceRotation, setVoiceRotation] = useState(0);
+  const [conversationActive, setConversationActive] = useState(false);
+  const [visitRef, setVisitRef] = useState("");
+  const recognitionRef = useRef<any>(null);
+  const conversationActiveRef = useRef(false);
 
   useEffect(() => {
     const saved = window.localStorage.getItem("enesko-theme");
@@ -108,7 +113,13 @@ export default function Home() {
           ? "light"
           : "dark";
     setTheme(next);
-    setShareOrigin(window.location.origin);
+    setShareOrigin(PUBLIC_APP_URL || window.location.origin);
+    let currentVisit = window.sessionStorage.getItem("enesko-visit-ref");
+    if (!currentVisit) {
+      currentVisit = `VISIT-${window.crypto?.randomUUID?.() || Date.now().toString(36)}`;
+      window.sessionStorage.setItem("enesko-visit-ref", currentVisit);
+    }
+    setVisitRef(currentVisit);
     const SpeechRecognition =
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     setSpeechSupported(Boolean(SpeechRecognition));
@@ -143,7 +154,7 @@ export default function Home() {
       const response = await fetch(API + "/api/v1/assistant/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: query.trim(), channel: "web" }),
+        body: JSON.stringify({ message: query.trim(), channel: "web", session_ref: visitRef || null }),
       });
       const body = await readJson(response, "ENESKO assistant");
       setAnswer(body.answer || "No answer is currently available.");
@@ -169,8 +180,15 @@ export default function Home() {
     return spoken;
   }
 
-  function speak(text: string, language: "en-NG" | "yo-NG" = voiceLanguage) {
-    if (!("speechSynthesis" in window)) return;
+  function speak(
+    text: string,
+    language: "en-NG" | "yo-NG" = voiceLanguage,
+    onDone?: () => void
+  ) {
+    if (!("speechSynthesis" in window)) {
+      onDone?.();
+      return;
+    }
 
     const synth = window.speechSynthesis;
     synth.cancel();
@@ -196,6 +214,15 @@ export default function Home() {
       setVoiceRotation((current) => current + 1);
     }
 
+    setVoiceState("speaking");
+    utterance.onend = () => {
+      if (!conversationActiveRef.current) setVoiceState("ready");
+      onDone?.();
+    };
+    utterance.onerror = () => {
+      if (!conversationActiveRef.current) setVoiceState("ready");
+      onDone?.();
+    };
     synth.speak(utterance);
   }
 
@@ -263,22 +290,29 @@ export default function Home() {
         body.language === "yo-NG" ? "yo-NG" : "en-NG";
       setVoiceLanguage(responseLanguage);
       setVoiceMessages((current) => [...current, { role: "assistant", text: reply }]);
-      speak(reply, responseLanguage);
+      speak(reply, responseLanguage, () => {
+        if (conversationActiveRef.current) {
+          void beginListening(true);
+        } else {
+          setVoiceState("ready");
+        }
+      });
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : "Voice concierge is unavailable.");
-    } finally {
       setVoiceState("ready");
+      setNotice(error instanceof Error ? error.message : "Voice concierge is unavailable.");
     }
   }
 
-  async function beginListening() {
+  async function beginListening(autoRestart = false) {
     setNotice("");
 
     if (!window.isSecureContext) {
+      conversationActiveRef.current = false;
+      setConversationActive(false);
+      setVoiceState("paused");
       setNotice(
-        "Phone microphone access needs a secure HTTPS ENESKO link. Open the secure mobile link or QR code, then allow microphone access."
+        "Voice needs the secure HTTPS ENESKO address. This page will not open another QR automatically; use the single secure QR shown on the laptop."
       );
-      setPhoneAccessOpen(true);
       return;
     }
 
@@ -286,7 +320,10 @@ export default function Home() {
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
+      conversationActiveRef.current = false;
+      setConversationActive(false);
       setSpeechSupported(false);
+      setVoiceState("paused");
       setNotice(
         "Speech recognition is not supported by this browser. Try current Chrome on Android, or use the text box."
       );
@@ -294,7 +331,10 @@ export default function Home() {
     }
 
     if (!navigator.mediaDevices?.getUserMedia) {
-      setNotice("This browser cannot access a microphone in the current context. Use the secure HTTPS link.");
+      conversationActiveRef.current = false;
+      setConversationActive(false);
+      setVoiceState("paused");
+      setNotice("This browser cannot access a microphone in the current context. Use the secure HTTPS ENESKO address.");
       return;
     }
 
@@ -303,10 +343,13 @@ export default function Home() {
       stream.getTracks().forEach((track) => track.stop());
       setVoicePermission("granted");
     } catch (error: any) {
+      conversationActiveRef.current = false;
+      setConversationActive(false);
       setVoicePermission("denied");
+      setVoiceState("paused");
       const name = error?.name || "";
       if (name === "NotAllowedError" || name === "SecurityError") {
-        setNotice("Microphone permission is blocked. Allow microphone access for ENESKO in your browser settings and tap Speak again.");
+        setNotice("Microphone permission is blocked. Allow microphone access for ENESKO, then resume the conversation.");
       } else if (name === "NotFoundError") {
         setNotice("No usable microphone was found on this device.");
       } else {
@@ -317,60 +360,98 @@ export default function Home() {
 
     setSpeechSupported(true);
     const recognition = new SpeechRecognition();
+    recognitionRef.current = recognition;
     recognition.lang = voiceLanguage;
     recognition.interimResults = false;
     recognition.continuous = false;
 
+    let receivedResult = false;
     recognition.onstart = () => setVoiceState("listening");
     recognition.onerror = (event: any) => {
-      setVoiceState("ready");
       const code = event?.error || "unknown";
+      conversationActiveRef.current = false;
+      setConversationActive(false);
+      setVoiceState("paused");
       if (code === "no-speech") {
-        setNotice("No speech was detected. Tap Speak and talk after the Listening state appears.");
+        setNotice("Conversation paused because no speech was detected. Tap Resume when you are ready.");
       } else if (code === "not-allowed" || code === "service-not-allowed") {
         setVoicePermission("denied");
         setNotice("Microphone or speech recognition permission is blocked for this site.");
       } else if (code === "audio-capture") {
         setNotice("The browser could not capture audio from this microphone.");
       } else if (code === "network") {
-        setNotice("The browser speech service could not connect. Type your request or try again with internet access.");
+        setNotice("The browser speech service could not connect. Type your request or resume when internet access is stable.");
       } else {
-        setNotice(`Speech recognition stopped (${code}). Try again or type your request.`);
+        setNotice(`Speech recognition stopped (${code}). Resume when you are ready.`);
       }
     };
     recognition.onend = () => {
-      setVoiceState((current) => (current === "thinking" ? current : "ready"));
+      recognitionRef.current = null;
+      setVoiceState((current) => {
+        if (current === "thinking" || current === "speaking" || current === "paused") return current;
+        if (receivedResult) return "thinking";
+        return conversationActiveRef.current ? "ready" : "paused";
+      });
     };
     recognition.onresult = (event: any) => {
+      receivedResult = true;
       const transcript = event.results?.[0]?.[0]?.transcript || "";
       if (transcript) void sendVoiceTurn(transcript);
     };
 
-    recognition.start();
+    try {
+      recognition.start();
+    } catch {
+      if (!autoRestart) {
+        conversationActiveRef.current = false;
+        setConversationActive(false);
+      }
+      setVoiceState("paused");
+      setNotice("Voice recognition could not start. Tap Resume to try again.");
+    }
+  }
+
+  async function startVoiceConversation() {
+    conversationActiveRef.current = true;
+    setConversationActive(true);
+    await ensureVoiceSession();
+    await beginListening();
+  }
+
+  function pauseVoiceConversation() {
+    conversationActiveRef.current = false;
+    setConversationActive(false);
+    recognitionRef.current?.abort?.();
+    recognitionRef.current = null;
+    window.speechSynthesis?.cancel();
+    setVoiceState("paused");
   }
 
   async function endVoiceSession() {
-    if (!voiceSessionRef) {
-      setVoiceMessages([]);
-      return;
+    conversationActiveRef.current = false;
+    setConversationActive(false);
+    recognitionRef.current?.abort?.();
+    recognitionRef.current = null;
+    window.speechSynthesis?.cancel();
+
+    if (voiceSessionRef) {
+      try {
+        await fetch(
+          API + `/api/v1/voice/sessions/${encodeURIComponent(voiceSessionRef)}/complete`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({}),
+          }
+        );
+      } finally {
+        setVoiceSessionRef("");
+      }
     }
 
-    try {
-      await fetch(
-        API + `/api/v1/voice/sessions/${encodeURIComponent(voiceSessionRef)}/complete`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({}),
-        }
-      );
-    } finally {
-      window.speechSynthesis?.cancel();
-      setVoiceSessionRef("");
-      setVoiceMessages([]);
-      setVoiceInput("");
-      setVoiceState("ready");
-    }
+    setVoiceInput("");
+    setVoiceState("ready");
+    setNotice("Conversation ended. The transcript stays visible; starting again creates a fresh live session.");
   }
 
   async function loadStores(search = "") {
