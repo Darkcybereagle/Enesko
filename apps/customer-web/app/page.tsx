@@ -1206,12 +1206,12 @@ export default function Home() {
                 use an HTTPS address rather than a plain local-IP HTTP address.
               </p>
 
-              {shareOrigin && (
+              {shareOrigin && secureShareReady ? (
                 <>
                   <div className="qrFrame">
                     <img
                       src={`${API}/api/v1/access/qr.svg?url=${encodeURIComponent(shareOrigin)}`}
-                      alt="QR code for this ENESKO customer address"
+                      alt="QR code for the secure ENESKO customer address"
                     />
                   </div>
                   <code className="shareUrl">{shareOrigin}</code>
@@ -1221,10 +1221,14 @@ export default function Home() {
                       type="button"
                       onClick={() => navigator.clipboard?.writeText(shareOrigin)}
                     >
-                      Copy link
+                      Copy secure link
                     </button>
                   </div>
                 </>
+              ) : (
+                <p className="finePrint">
+                  A secure phone QR is not available from this HTTP address. Open ENESKO through HTTPS or configure NEXT_PUBLIC_PUBLIC_APP_URL.
+                </p>
               )}
 
               <p className="finePrint">
