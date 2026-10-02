@@ -623,6 +623,8 @@ export default function Home() {
     };
   }
 
+  const secureShareReady = shareOrigin.startsWith("https://");
+
   return (
     <div className="appShell">
       <header className="topbar">
@@ -808,13 +810,31 @@ export default function Home() {
                 <button
                   className={`voiceOrb voice-${voiceState}`}
                   type="button"
-                  onClick={beginListening}
-                  disabled={voiceState === "thinking"}
-                  aria-label="Start speaking to ENESKO"
+                  onClick={conversationActive ? pauseVoiceConversation : startVoiceConversation}
+                  disabled={voiceState === "thinking" || voiceState === "speaking"}
+                  aria-label={conversationActive ? "Pause ENESKO conversation" : "Start ENESKO conversation"}
                 >
                   <span className="voicePulse" />
-                  <strong>{voiceState === "listening" ? "Listening" : voiceState === "thinking" ? "Thinking" : "Speak"}</strong>
-                  <small>{voiceState === "ready" ? "Tap the mic" : "ENESKO Voice"}</small>
+                  <strong>
+                    {voiceState === "listening"
+                      ? "Listening"
+                      : voiceState === "thinking"
+                        ? "Thinking"
+                        : voiceState === "speaking"
+                          ? "Speaking"
+                          : conversationActive
+                            ? "Pause"
+                            : voiceState === "paused"
+                              ? "Resume"
+                              : "Start"}
+                  </strong>
+                  <small>
+                    {conversationActive
+                      ? "Conversation stays open"
+                      : voiceState === "paused"
+                        ? "Tap to continue"
+                        : "One tap starts the chamber"}
+                  </small>
                 </button>
 
                 <div className="voiceHints">
@@ -828,6 +848,26 @@ export default function Home() {
                     Ask about cinema
                   </button>
                 </div>
+
+                <div className="desktopVoiceQr">
+                  <span className="eyebrow">One QR for every phone</span>
+                  {secureShareReady ? (
+                    <>
+                      <div className="desktopQrFrame">
+                        <img
+                          src={`${API}/api/v1/access/qr.svg?url=${encodeURIComponent(shareOrigin)}`}
+                          alt="Secure ENESKO mobile access QR code"
+                        />
+                      </div>
+                      <small>Scan this same secure QR on any customer phone.</small>
+                    </>
+                  ) : (
+                    <small>
+                      Open ENESKO through its HTTPS address, or configure NEXT_PUBLIC_PUBLIC_APP_URL,
+                      and the single secure phone QR will appear here.
+                    </small>
+                  )}
+                </div>
               </div>
 
               <div className="voiceConversation">
@@ -837,9 +877,19 @@ export default function Home() {
                     <h2>Live concierge</h2>
                   </div>
                   {voiceMessages.length > 0 && (
-                    <button className="secondaryAction" type="button" onClick={endVoiceSession}>
-                      End session
-                    </button>
+                    <div className="voiceSessionActions">
+                      <button
+                        className="secondaryAction"
+                        type="button"
+                        onClick={conversationActive ? pauseVoiceConversation : startVoiceConversation}
+                        disabled={voiceState === "thinking" || voiceState === "speaking"}
+                      >
+                        {conversationActive ? "Pause" : "Resume"}
+                      </button>
+                      <button className="secondaryAction" type="button" onClick={endVoiceSession}>
+                        End conversation
+                      </button>
+                    </div>
                   )}
                 </div>
 
@@ -854,7 +904,7 @@ export default function Home() {
                   ) : (
                     <div className="emptyState voiceEmpty">
                       <strong>Ready when you are.</strong>
-                      <p>Tap Speak or type a request below. This is not a WhatsApp clone; it is ENESKO's own mall-concierge interface.</p>
+                      <p>Start once, then speak naturally. ENESKO keeps the active session context and listens again after each spoken response.</p>
                     </div>
                   )}
                 </div>
