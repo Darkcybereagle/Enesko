@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections import Counter, defaultdict
 from datetime import datetime
 import hashlib
+import hmac
 import json
 import re
 import unicodedata
@@ -13,6 +14,7 @@ from pydantic import BaseModel, ConfigDict
 from sqlalchemy import Boolean, DateTime, Float, Integer, String, Text, select
 from sqlalchemy.orm import Mapped, Session, mapped_column
 
+from app.config import settings
 from app.database import Base, get_db
 from app.security import Role, User, require_roles
 
@@ -109,7 +111,11 @@ def _safe_topics(message: str, result: dict) -> list[str]:
 def _session_hash(session_ref: str | None) -> str | None:
     if not session_ref:
         return None
-    return hashlib.sha256(session_ref.encode("utf-8")).hexdigest()
+    return hmac.new(
+        settings.jwt_secret.encode("utf-8"),
+        session_ref.encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()
 
 
 def record_learning_signal(
@@ -221,7 +227,7 @@ def train_pattern_model(db: Session) -> LearningModel:
         "privacy": {
             "raw_text_stored": False,
             "direct_identity_stored": False,
-            "session_identifier": "sha256",
+            "session_identifier": "hmac-sha256",
             "topic_vocabulary": "allowlisted",
         },
     }
@@ -305,7 +311,7 @@ def learning_status(
             "HUMAN_APPROVAL",
             "ACTIVE_ENESKO_MODEL",
         ],
-        "raw_customer_text_stored": False,
+        "learning_dataset_raw_customer_text_stored": False,
         "interaction_signals": len(events),
         "models": len(models),
         "active_model": active.version if active else None,
