@@ -3,7 +3,7 @@ from alembic import context
 from sqlalchemy import engine_from_config,pool
 from app.config import settings
 from app.database import Base
-import app.models,app.phase3,app.phase4,app.phase5,app.phase6,app.phase7,app.phase8,app.phase9,app.phase10,app.phase12,app.security,app.audit
+import app.models,app.phase3,app.phase4,app.phase5,app.phase6,app.phase7,app.phase8,app.phase9,app.phase10,app.phase12,app.security,app.audit,app.learning
 config=context.config
 config.set_main_option("sqlalchemy.url",settings.database_url)
 if config.config_file_name: fileConfig(config.config_file_name)
