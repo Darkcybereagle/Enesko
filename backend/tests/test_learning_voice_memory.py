@@ -83,7 +83,7 @@ def test_learning_pipeline_collects_only_anonymized_signals(client, admin_header
     status = client.get("/api/v1/learning/status", headers=admin_headers)
     assert status.status_code == 200
     body = status.json()
-    assert body["raw_customer_text_stored"] is False
+    assert body["learning_dataset_raw_customer_text_stored"] is False
     assert body["interaction_signals"] == 1
     assert body["active_model"] is None
     assert body["pipeline"][-1] == "ACTIVE_ENESKO_MODEL"
