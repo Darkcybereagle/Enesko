@@ -23,6 +23,7 @@ class Case(Base):
     contact: Mapped[str | None] = mapped_column(String(200), nullable=True)
     item_description: Mapped[str | None] = mapped_column(Text, nullable=True)
     last_seen_location: Mapped[str | None] = mapped_column(String(240), nullable=True)
+    last_seen_time: Mapped[str | None] = mapped_column(String(120), nullable=True)
     distinguishing_features: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
@@ -60,6 +61,7 @@ class CaseCreate(BaseModel):
     contact: str | None = None
     item_description: str | None = None
     last_seen_location: str | None = None
+    last_seen_time: str | None = None
     distinguishing_features: str | None = None
 
 
@@ -99,6 +101,7 @@ class CaseOut(BaseModel):
     contact: str | None
     item_description: str | None
     last_seen_location: str | None
+    last_seen_time: str | None
     distinguishing_features: str | None
     created_at: datetime
     updated_at: datetime
