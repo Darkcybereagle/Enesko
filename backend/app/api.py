@@ -5,7 +5,8 @@ from sqlalchemy import or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.database import get_db
-from app.learning import record_learning_signal\nfrom app.models import Category, Conversation, Facility, Floor, KnowledgeDocument, Mall, Store, Zone
+from app.learning import approved_prediction, record_learning_signal
+from app.models import Category, Conversation, Facility, Floor, KnowledgeDocument, Mall, Store, Zone
 from app.schemas import (
     ChatRequest, ChatResponse, FacilityOut, FloorOut, KnowledgeCreate,
     KnowledgeOut, MallOut, StoreOut, ZoneOut,
@@ -98,6 +99,13 @@ def list_knowledge(db: Session = Depends(get_db)):
 @router.post("/assistant/chat", response_model=ChatResponse, tags=["Assistant"])
 def assistant_chat(payload: ChatRequest, db: Session = Depends(get_db)):
     result = orchestrate(db, payload.message)
+    suggestion = approved_prediction(db, payload.message, result)
+    if suggestion and result.get("intent") in {"store_search", "shopping_plan", "navigation"}:
+        result["answer"] = (
+            result["answer"]
+            + f" Based on an approved anonymized ENESKO usage pattern, {suggestion.replace('_', ' ')} "
+            "is often the next related request. Would you like help with that?"
+        )
     db.add(Conversation(
         channel=payload.channel,
         user_text=payload.message,
