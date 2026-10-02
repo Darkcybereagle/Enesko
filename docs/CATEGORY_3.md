@@ -49,6 +49,11 @@ The Customer Web app includes an ENESKO-branded voice interface:
 The web voice screen is intentionally **not a WhatsApp clone**. It is a mall-concierge surface. ENESKO inside WhatsApp naturally uses the WhatsApp interface.
 
 The voice concierge also supports:
+- a long-running conversation chamber that automatically returns to listening after a successful spoken ENESKO reply;
+- pause/resume and explicit end-conversation controls;
+- VoiceSession working memory for contextual follow-ups and active workflows;
+- a conversational Lost & Found interview that gathers item, description, last-seen location, approximate time and contact before case submission;
+- a single desktop QR surface for secure mobile access without recursive QR popups;
 - a warm spoken Ikeja City Mall welcome when the customer opens Voice;
 - English (Nigeria) speech mode using `en-NG`;
 - Yorùbá speech mode using `yo-NG`;
@@ -56,7 +61,13 @@ The voice concierge also supports:
 - Yorùbá operational replies using the same verified ENESKO tools and records;
 - rotation across distinct speech-synthesis voices available on the customer's device.
 
-Browser speech APIs expose voice language/name but not a reliable gender attribute, so the local browser implementation does not claim guaranteed male/female Nigerian voices. A production TTS provider can later supply controlled named Nigerian male/female voice profiles without changing the ENESKO conversation engine.
+Browser speech APIs expose voice language/name but not a reliable gender attribute, so the local browser implementation does not claim guaranteed male/female Nigerian voices.
+
+### Governed learning foundation
+
+ENESKO also collects a separate learning dataset made only from allowlisted topic/intent signals and HMAC-pseudonymous session identifiers. Raw customer messages remain outside this learning dataset. Staff can train a pattern candidate, evaluate it, and explicitly approve it in ENESKO OPS. Only an approved model can produce learned next-topic suggestions; learned patterns never replace verified operational facts.
+
+See `docs/LEARNING_FOUNDATION.md` for the privacy boundary, approval gate, model lifecycle and permanent-QR configuration. A production TTS provider can later supply controlled named Nigerian male/female voice profiles without changing the ENESKO conversation engine.
 
 ### 3.4 — WhatsApp channel
 - Meta WhatsApp Cloud adapter;
@@ -156,7 +167,7 @@ python -m pip install -r backend\requirements.txt
 cd backend
 python -m alembic upgrade head
 python -m app.seed
-pytest -q
+python -m pytest -q
 
 cd ..
 npm install
