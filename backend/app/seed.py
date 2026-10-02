@@ -15,7 +15,7 @@ from app.phase10 import seed_phase10
 from app.phase11 import seed_phase11
 from app.phase12 import seed_phase12
 from app.phase13 import seed_phase13
-from app.security import seed_security
+from app.security import seed_security\nfrom app.learning import seed_learning
 
 
 PUBLIC_VERIFIED_AT = datetime(2026, 9, 29)
@@ -1428,6 +1428,7 @@ def seed():
             seed_phase12,
             seed_phase13,
             seed_security,
+            seed_learning,
         ):
             fn(db)
         print(
