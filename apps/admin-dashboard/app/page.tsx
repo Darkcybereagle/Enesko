@@ -6,7 +6,7 @@ const API = process.env.NEXT_PUBLIC_API_URL || "/backend";
 const LOCAL_EMAIL = "admin@enesko.local";
 const LOCAL_PASSWORD = "EneskoLocal2026!";
 
-type View = "overview" | "cases" | "tenant-requests" | "activations" | "audit" | "parking" | "integrations";
+type View = "overview" | "cases" | "tenant-requests" | "activations" | "audit" | "parking" | "integrations" | "learning";
 
 export default function Admin() {
   const [theme, setTheme] = useState<"light" | "dark">("dark");
@@ -22,6 +22,8 @@ export default function Admin() {
   const [audit, setAudit] = useState<any[]>([]);
   const [integrationStatus, setIntegrationStatus] = useState<any>(null);
   const [integrationHealth, setIntegrationHealth] = useState<any>(null);
+  const [learningStatus, setLearningStatus] = useState<any>(null);
+  const [learningModels, setLearningModels] = useState<any[]>([]);
   const [activeView, setActiveView] = useState<View>("overview");
   const [selectedCase, setSelectedCase] = useState<any>(null);
   const [selectedActivation, setSelectedActivation] = useState<any>(null);
@@ -163,6 +165,16 @@ export default function Admin() {
         setIntegrationHealth(await readJson(healthResponse, "Integration health"));
       }
 
+      if (view === "learning") {
+        setBusy(true);
+        const [statusResponse, modelsResponse] = await Promise.all([
+          fetch(API + "/api/v1/learning/status", { headers: authHeaders() }),
+          fetch(API + "/api/v1/learning/models", { headers: authHeaders() }),
+        ]);
+        setLearningStatus(await readJson(statusResponse, "Learning status"));
+        setLearningModels(await readJson(modelsResponse, "Learning models"));
+      }
+
       if (view === "tenant-requests") {
         setBusy(true);
         const tenantsResponse = await fetch(API + "/api/v1/tenants", { headers: authHeaders() });
@@ -281,6 +293,46 @@ export default function Admin() {
     }
   }
 
+  async function trainLearningModel() {
+    setBusy(true);
+    setError("");
+    setStatusMessage("");
+    try {
+      const response = await fetch(API + "/api/v1/learning/train", {
+        method: "POST",
+        headers: authHeaders(),
+      });
+      const model = await readJson(response, "Learning model training");
+      setStatusMessage(
+        `${model.version} tested with score ${Number(model.evaluation_score).toFixed(2)}. Review it before approval.`
+      );
+      await openView("learning");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Learning model training failed.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function approveLearningModel(modelId: number) {
+    setBusy(true);
+    setError("");
+    setStatusMessage("");
+    try {
+      const response = await fetch(API + `/api/v1/learning/models/${modelId}/approve`, {
+        method: "POST",
+        headers: authHeaders(),
+      });
+      const model = await readJson(response, "Learning model approval");
+      setStatusMessage(`${model.version} is now the approved ENESKO pattern model.`);
+      await openView("learning");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Learning model approval failed.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   function clearSession() {
     setToken("");
     setData(null);
@@ -291,6 +343,8 @@ export default function Admin() {
     setAudit([]);
     setIntegrationStatus(null);
     setIntegrationHealth(null);
+    setLearningStatus(null);
+    setLearningModels([]);
     setSelectedCase(null);
     setSelectedActivation(null);
     setSelectedParking(null);
@@ -334,6 +388,11 @@ export default function Admin() {
           {token && (
             <button className="navButton" type="button" onClick={() => openView("integrations")}>
               Integrations
+            </button>
+          )}
+          {token && (
+            <button className="navButton" type="button" onClick={() => openView("learning")}>
+              Learning
             </button>
           )}
           {token && (
@@ -710,6 +769,79 @@ export default function Admin() {
                     </span>
                   </div>
                 )}
+              </div>
+            )}
+
+            {activeView === "learning" && (
+              <div className="card">
+                <div className="sectionHeader">
+                  <div>
+                    <div className="eyebrow">Governed AI learning</div>
+                    <h3>Pattern model pipeline</h3>
+                  </div>
+                  <button
+                    className="button"
+                    type="button"
+                    onClick={trainLearningModel}
+                    disabled={busy}
+                  >
+                    Train candidate
+                  </button>
+                </div>
+
+                {learningStatus ? (
+                  <>
+                    <div className="grid">
+                      <div className="record">
+                        <strong>{learningStatus.interaction_signals}</strong>
+                        <span>Anonymized learning signals</span>
+                      </div>
+                      <div className="record">
+                        <strong>{learningStatus.models}</strong>
+                        <span>Model versions</span>
+                      </div>
+                      <div className="record">
+                        <strong>{learningStatus.active_model || "None"}</strong>
+                        <span>Approved active model</span>
+                      </div>
+                    </div>
+                    <p className="muted">
+                      Learning dataset stores allowlisted topic signals and pseudonymous session hashes, not raw customer messages.
+                      Operational answers still come from verified ENESKO data and tools.
+                    </p>
+                  </>
+                ) : (
+                  <p className="muted">Open Learning to load the governed model pipeline.</p>
+                )}
+
+                <div className="record" style={{ marginTop: 18 }}>
+                  <strong>Required flow</strong>
+                  <span className="muted">
+                    Interaction signals → pattern analysis → training → testing → human approval → active ENESKO model
+                  </span>
+                </div>
+
+                {learningModels.map((model) => (
+                  <div className="record" key={model.id} style={{ marginTop: 12 }}>
+                    <strong>{model.version}</strong>
+                    <span>
+                      {model.status} · {model.training_event_count} signals · score {Number(model.evaluation_score).toFixed(2)}
+                    </span>
+                    <span className="muted">
+                      {model.active ? "Currently active" : "Not active"}{model.approved_by ? ` · approved by ${model.approved_by}` : ""}
+                    </span>
+                    {model.status === "TESTED" && !model.active && (
+                      <button
+                        className="secondaryButton"
+                        type="button"
+                        disabled={busy || model.training_event_count < 10 || Number(model.evaluation_score) < 0.5}
+                        onClick={() => approveLearningModel(model.id)}
+                      >
+                        Approve model
+                      </button>
+                    )}
+                  </div>
+                ))}
               </div>
             )}
 
