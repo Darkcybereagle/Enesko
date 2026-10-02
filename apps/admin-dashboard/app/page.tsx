@@ -595,6 +595,15 @@ export default function Admin() {
                       <p><strong>{selectedCase.summary}</strong></p>
                       <p className="muted">{selectedCase.description}</p>
                       <p className="muted">Type: {selectedCase.case_type} · Priority: {selectedCase.priority} · Channel: {selectedCase.channel}</p>
+                      {selectedCase.case_type === "LOST_FOUND" && (
+                        <div className="record">
+                          <strong>{selectedCase.item_description || "Lost item"}</strong>
+                          <span>{selectedCase.distinguishing_features || "No distinguishing features recorded"}</span>
+                          <span className="muted">
+                            Last seen: {selectedCase.last_seen_location || "Not stated"} · {selectedCase.last_seen_time || "Time not stated"} · Contact: {selectedCase.contact || "Not stated"}
+                          </span>
+                        </div>
+                      )}
                       <p className="muted">Status: <strong>{selectedCase.status}</strong></p>
                       <div className="actionGroup">
                         {["OPEN", "IN_PROGRESS", "RESOLVED", "CLOSED"].map((status) => (
