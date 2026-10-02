@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.database import get_db
 from app.integrations import cinema_adapter, email_adapter, parking_adapter, whatsapp_adapter
+from app.learning import LearningInteraction, LearningModel
 from app.models import Conversation, KnowledgeDocument
 from app.phase7 import ChannelMessage
 from app.phase8 import VoiceSession
@@ -48,7 +49,9 @@ def assistant_capabilities():
             "cinema_lookup",
             "parking_lookup",
             "indoor_navigation",
-            "lost_and_found_intake",
+            "lost_and_found_conversation",
+            "session_memory",
+            "approved_pattern_learning",
             "human_handoff",
             "tenant_operations",
         ],
@@ -107,6 +110,8 @@ def integrations_health(
         "verified_knowledge_documents": verified_knowledge,
         "channel_messages": count(ChannelMessage),
         "voice_sessions": count(VoiceSession),
+        "learning_signals": count(LearningInteraction),
+        "learning_models": count(LearningModel),
         "providers": {
             "whatsapp": "READY" if whatsapp_adapter.configured else "NOT_CONFIGURED",
             "email": "READY" if email_adapter.configured else "NOT_CONFIGURED",
