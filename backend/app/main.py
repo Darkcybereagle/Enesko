@@ -8,7 +8,8 @@ from app.platform_api import router as platform_router
 from app.audit import audit_mutations
 from app.config import settings
 from app.category3 import router as category3_router
-from app.access import router as access_router\nfrom app.learning import router as learning_router
+from app.access import router as access_router
+from app.learning import router as learning_router
 from app.database import Base,engine
 from app.phase3 import router as cases_router
 from app.phase4 import router as navigation_router
