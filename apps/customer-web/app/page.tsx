@@ -293,7 +293,7 @@ export default function Home() {
       setVoiceMessages((current) => [...current, { role: "assistant", text: reply }]);
       speak(reply, responseLanguage, () => {
         if (conversationActiveRef.current) {
-          void beginListening(true);
+          void beginListening(true, responseLanguage);
         } else {
           setVoiceState("ready");
         }
@@ -304,7 +304,7 @@ export default function Home() {
     }
   }
 
-  async function beginListening(autoRestart = false) {
+  async function beginListening(autoRestart = false, languageOverride?: "en-NG" | "yo-NG") {
     setNotice("");
 
     if (!window.isSecureContext) {
@@ -339,43 +339,60 @@ export default function Home() {
       return;
     }
 
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      stream.getTracks().forEach((track) => track.stop());
-      setVoicePermission("granted");
-    } catch (error: any) {
-      conversationActiveRef.current = false;
-      setConversationActive(false);
-      setVoicePermission("denied");
-      setVoiceState("paused");
-      const name = error?.name || "";
-      if (name === "NotAllowedError" || name === "SecurityError") {
-        setNotice("Microphone permission is blocked. Allow microphone access for ENESKO, then resume the conversation.");
-      } else if (name === "NotFoundError") {
-        setNotice("No usable microphone was found on this device.");
-      } else {
-        setNotice("ENESKO could not access this device's microphone. You can still type your request.");
+    if (!autoRestart) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        stream.getTracks().forEach((track) => track.stop());
+        setVoicePermission("granted");
+      } catch (error: any) {
+        conversationActiveRef.current = false;
+        setConversationActive(false);
+        setVoicePermission("denied");
+        setVoiceState("paused");
+        const name = error?.name || "";
+        if (name === "NotAllowedError" || name === "SecurityError") {
+          setNotice("Microphone permission is blocked. Allow microphone access for ENESKO, then resume the conversation.");
+        } else if (name === "NotFoundError") {
+          setNotice("No usable microphone was found on this device.");
+        } else {
+          setNotice("ENESKO could not access this device's microphone. You can still type your request.");
+        }
+        return;
       }
-      return;
     }
 
     setSpeechSupported(true);
     const recognition = new SpeechRecognition();
     recognitionRef.current = recognition;
-    recognition.lang = voiceLanguage;
+    recognition.lang = languageOverride || voiceLanguage;
     recognition.interimResults = false;
     recognition.continuous = false;
 
     let receivedResult = false;
+    let restartScheduled = false;
+    const scheduleRestart = () => {
+      if (restartScheduled || !conversationActiveRef.current) return;
+      restartScheduled = true;
+      window.setTimeout(() => {
+        if (conversationActiveRef.current) {
+          void beginListening(true, languageOverride || voiceLanguage);
+        }
+      }, 350);
+    };
+
     recognition.onstart = () => setVoiceState("listening");
     recognition.onerror = (event: any) => {
       const code = event?.error || "unknown";
+      if (code === "no-speech" && conversationActiveRef.current) {
+        setVoiceState("ready");
+        scheduleRestart();
+        return;
+      }
+
       conversationActiveRef.current = false;
       setConversationActive(false);
       setVoiceState("paused");
-      if (code === "no-speech") {
-        setNotice("Conversation paused because no speech was detected. Tap Resume when you are ready.");
-      } else if (code === "not-allowed" || code === "service-not-allowed") {
+      if (code === "not-allowed" || code === "service-not-allowed") {
         setVoicePermission("denied");
         setNotice("Microphone or speech recognition permission is blocked for this site.");
       } else if (code === "audio-capture") {
@@ -393,6 +410,7 @@ export default function Home() {
         if (receivedResult) return "thinking";
         return conversationActiveRef.current ? "ready" : "paused";
       });
+      if (!receivedResult && conversationActiveRef.current) scheduleRestart();
     };
     recognition.onresult = (event: any) => {
       receivedResult = true;
