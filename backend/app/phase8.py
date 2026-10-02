@@ -256,7 +256,7 @@ def _lost_found_turn(
         workflow["stage"] = "features"
     elif stage == "features":
         data["distinguishing_features"] = text.strip()[:2000]
-        workflow["stage"] = "location"
+        workflow["stage"] = "time" if data.get("last_seen_location") else "location"
     elif stage == "location":
         data["last_seen_location"] = text.strip()[:240]
         workflow["stage"] = "time"
@@ -336,9 +336,18 @@ def _shopping_memory_turn(db: Session, text: str, memory: dict) -> tuple[dict, d
 
     if lowered.startswith("remove ") or lowered.startswith("skip "):
         target = lowered.split(" ", 1)[1].strip()
+        alias_groups = {
+            "food": {"food", "eat", "meal", "restaurant", "dining"},
+            "eat": {"food", "eat", "meal", "restaurant", "dining"},
+            "shoe": {"shoe", "shoes", "sneaker", "sneakers", "footwear"},
+            "shoes": {"shoe", "shoes", "sneaker", "sneakers", "footwear"},
+            "water": {"water", "drink", "drinks", "beverage"},
+            "drink": {"water", "drink", "drinks", "beverage"},
+        }
+        aliases = alias_groups.get(target, {target})
         remaining = [
             item for item in items
-            if target not in str(item.get("need") or "").lower()
+            if not any(alias in str(item.get("need") or "").lower() for alias in aliases)
         ]
         if len(remaining) == len(items):
             return _base_result(
