@@ -84,6 +84,7 @@ export default function Home() {
   const [supportContact, setSupportContact] = useState("");
   const [lostItem, setLostItem] = useState("");
   const [lostLocation, setLostLocation] = useState("");
+  const [lostTime, setLostTime] = useState("");
   const [lostFeatures, setLostFeatures] = useState("");
   const [lostContact, setLostContact] = useState("");
   const [caseRef, setCaseRef] = useState("");
@@ -414,8 +415,15 @@ export default function Home() {
   async function startVoiceConversation() {
     conversationActiveRef.current = true;
     setConversationActive(true);
-    await ensureVoiceSession();
-    await beginListening();
+    try {
+      await ensureVoiceSession();
+      await beginListening();
+    } catch (error) {
+      conversationActiveRef.current = false;
+      setConversationActive(false);
+      setVoiceState("paused");
+      setNotice(error instanceof Error ? error.message : "ENESKO could not start the conversation.");
+    }
   }
 
   function pauseVoiceConversation() {
@@ -594,6 +602,7 @@ export default function Home() {
           contact: lostContact.trim() || null,
           item_description: lostItem.trim(),
           last_seen_location: lostLocation.trim(),
+          last_seen_time: lostTime.trim() || null,
           distinguishing_features: lostFeatures.trim() || null,
           channel: "web",
           priority: "NORMAL",
@@ -603,6 +612,7 @@ export default function Home() {
       setCaseRef(body.reference);
       setLostItem("");
       setLostLocation("");
+      setLostTime("");
       setLostFeatures("");
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "Lost and found case could not be created.");
@@ -1148,6 +1158,10 @@ export default function Home() {
               <label>
                 Last place you remember seeing it
                 <input value={lostLocation} onChange={(event) => setLostLocation(event.target.value)} placeholder="Food court" />
+              </label>
+              <label>
+                Approximate time last seen
+                <input value={lostTime} onChange={(event) => setLostTime(event.target.value)} placeholder="Around 7:00 PM" />
               </label>
               <label>
                 Distinguishing features
