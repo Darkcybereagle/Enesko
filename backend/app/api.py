@@ -5,7 +5,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.database import get_db
-from app.models import Category, Conversation, Facility, Floor, KnowledgeDocument, Mall, Store, Zone
+from app.learning import record_learning_signal\nfrom app.models import Category, Conversation, Facility, Floor, KnowledgeDocument, Mall, Store, Zone
 from app.schemas import (
     ChatRequest, ChatResponse, FacilityOut, FloorOut, KnowledgeCreate,
     KnowledgeOut, MallOut, StoreOut, ZoneOut,
@@ -105,5 +105,12 @@ def assistant_chat(payload: ChatRequest, db: Session = Depends(get_db)):
         intent=result["intent"],
         needs_human=result["needs_human"],
     ))
+    record_learning_signal(
+        db,
+        session_ref=payload.session_ref,
+        channel=payload.channel,
+        message=payload.message,
+        result=result,
+    )
     db.commit()
     return result
