@@ -11,6 +11,7 @@ from sqlalchemy.orm import Mapped, Session, mapped_column
 from app.config import settings
 from app.database import Base, get_db
 from app.integrations import email_adapter, whatsapp_adapter
+from app.learning import approved_prediction, record_learning_signal
 from app.models import Conversation
 from app.security import Role, User, require_roles
 from app.services import orchestrate
@@ -98,6 +99,13 @@ def _process_inbound(db: Session, *, channel: str, sender: str, body: str) -> di
         provider="META_WHATSAPP_CLOUD" if channel == "WHATSAPP" else "INBOUND_WEBHOOK",
     )
     result = orchestrate(db, body)
+    suggestion = approved_prediction(db, body, result)
+    if suggestion and result.get("intent") in {"store_search", "shopping_plan", "navigation"}:
+        result["answer"] = (
+            result["answer"]
+            + f" Based on an approved anonymized ENESKO usage pattern, {suggestion.replace('_', ' ')} "
+            "is often the next related request. Would you like help with that?"
+        )
     db.add(
         Conversation(
             channel=channel.lower(),
@@ -106,6 +114,13 @@ def _process_inbound(db: Session, *, channel: str, sender: str, body: str) -> di
             intent=result["intent"],
             needs_human=result["needs_human"],
         )
+    )
+    record_learning_signal(
+        db,
+        session_ref=f"{channel}:{sender}",
+        channel=channel.lower(),
+        message=body,
+        result=result,
     )
     db.commit()
 
